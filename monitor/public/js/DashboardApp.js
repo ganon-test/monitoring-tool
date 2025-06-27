@@ -240,19 +240,37 @@ class DashboardApp {
      * 全ての表示を更新
      */
     updateAllDisplays() {
+        console.log('Updating all displays for view:', this.currentView);
+        
         // ステータスインジケーターを更新
         this.updateStatusIndicators();
         
         // 現在のビューに応じてコントローラーを更新
         if (this.currentView === 'nextcloud' && this.nextcloudController) {
             const data = this.dataModel.getNextcloudData ? this.dataModel.getNextcloudData() : null;
+            console.log('Nextcloud data:', data);
             if (data && this.nextcloudController.updateDisplay) {
                 this.nextcloudController.updateDisplay(data);
+            } else {
+                console.warn('No Nextcloud data available or updateDisplay method missing');
             }
         } else if (this.currentView === 'proxmox' && this.proxmoxController) {
             const data = this.dataModel.getProxmoxData ? this.dataModel.getProxmoxData() : null;
+            console.log('Proxmox data:', data);
             if (data && this.proxmoxController.updateDisplay) {
                 this.proxmoxController.updateDisplay(data);
+            } else {
+                console.warn('No Proxmox data available or updateDisplay method missing');
+                
+                // 代替手段：データを新たに取得
+                if (this.dataModel.fetchProxmoxData) {
+                    console.log('Attempting to fetch fresh Proxmox data...');
+                    this.dataModel.fetchProxmoxData().then(freshData => {
+                        if (freshData && this.proxmoxController.updateDisplay) {
+                            this.proxmoxController.updateDisplay(freshData);
+                        }
+                    });
+                }
             }
         }
     }

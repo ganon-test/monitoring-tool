@@ -115,15 +115,48 @@ function refreshNextcloud() {
     }
 }
 
-function refreshProxmox() {
+// Global functions for view switching (delegates to DashboardApp)
+function switchView(view) {
     if (window.dashboardApp) {
-        window.dashboardApp.dataModel.fetchProxmoxData();
+        window.dashboardApp.switchView(view);
+    }
+}
+
+function refreshNextcloud() {
+    if (window.dashboardApp) {
+        window.dashboardApp.dataModel.fetchNextcloudData();
+    }
+}
+
+function refreshProxmox() {
+    console.log('Refreshing Proxmox data...');
+    if (window.dashboardApp && window.dashboardApp.dataModel) {
+        window.dashboardApp.dataModel.fetchProxmoxData().then(data => {
+            console.log('Fresh Proxmox data received:', data);
+            if (window.dashboardApp.proxmoxController && data) {
+                window.dashboardApp.proxmoxController.updateView(data);
+            }
+        }).catch(error => {
+            console.error('Failed to refresh Proxmox data:', error);
+        });
+    } else {
+        console.error('DashboardApp or DataModel not available');
     }
 }
 
 function toggleDetailedView() {
     if (window.dashboardApp) {
-        window.dashboardApp.toggleDetailMode();
+        const currentView = window.dashboardApp.currentView;
+        
+        if (currentView === 'proxmox' && window.dashboardApp.proxmoxController) {
+            window.dashboardApp.proxmoxController.toggleDetailedView();
+        } else if (currentView === 'nextcloud' && window.dashboardApp.nextcloudController) {
+            window.dashboardApp.nextcloudController.toggleDetailedView();
+        } else {
+            console.warn('No controller available for current view:', currentView);
+        }
+    } else {
+        console.error('DashboardApp not available');
     }
 }
 
@@ -191,25 +224,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-// Utility functions
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-}
-
-function formatUptime(seconds) {
-    if (!seconds) return '-';
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${days}d ${hours}h ${minutes}m`;
-}

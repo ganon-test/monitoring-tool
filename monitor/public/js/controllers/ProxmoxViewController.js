@@ -22,13 +22,23 @@ class ProxmoxViewController {
         this.isUpdating = true;
 
         try {
+            console.log('ProxmoxViewController updating view with data:', data);
+            
             const responseData = data.data || data;
             if (responseData.error || data.error) {
                 this.handleError(responseData.error || data.error);
                 return;
             }
 
+            // 接続ステータスを更新
             this.updateServiceStatus(true);
+
+            // データが存在するかチェック
+            if (!responseData || typeof responseData !== 'object') {
+                console.warn('No valid Proxmox data received:', responseData);
+                this.updateServiceStatus(false);
+                return;
+            }
 
             await Promise.all([
                 this.updateClusterNodes(responseData.nodes),
@@ -103,84 +113,189 @@ class ProxmoxViewController {
      * リソースゲージを更新
      */
     updateResourceGauges(data) {
-        if (!data || !data.nodes) return;
+        console.log('Updating Proxmox resource gauges with data:', data);
+        
+        if (!data || !data.nodes) {
+            console.warn('No nodes data available for resource gauges');
+            // デフォルト値を表示
+            this.setDefaultGaugeValues();
+            return;
+        }
 
         let totalCpu = 0, usedCpu = 0;
         let totalMemory = 0, usedMemory = 0;
         let totalStorage = 0, usedStorage = 0;
+        let nodeCount = 0;
 
         data.nodes.forEach(node => {
+            console.log('Processing node:', node);
             if (node.status === 'online') {
-                totalCpu += node.maxcpu || 0;
-                usedCpu += ((node.cpu || 0) * (node.maxcpu || 0)) / 100;
+                nodeCount++;
                 
-                totalMemory += (node.maxmem || 0) / (1024 * 1024 * 1024);
-                usedMemory += ((node.mem || 0) / (1024 * 1024 * 1024));
+                // CPU計算の改善
+                const maxCpu = node.maxcpu || node.cores || 1;
+                const currentCpu = node.cpu || 0;
+                totalCpu += maxCpu;
+                usedCpu += (currentCpu * maxCpu);
+                
+                // Memory計算（バイト単位で処理）
+                const maxMem = node.maxmem || 0;
+                const usedMem = node.mem || 0;
+                totalMemory += maxMem;
+                usedMemory += usedMem;
             }
         });
 
-        if (data.storage) {
+        // ストレージ情報を処理
+        if (data.storage && Array.isArray(data.storage)) {
             data.storage.forEach(storage => {
-                totalStorage += (storage.total || 0) / (1024 * 1024 * 1024 * 1024);
-                usedStorage += (storage.used || 0) / (1024 * 1024 * 1024 * 1024);
+                if (storage.enabled !== false) {
+                    totalStorage += (storage.total || 0);
+                    usedStorage += (storage.used || 0);
+                }
             });
         }
 
+        console.log('Calculated values:', {
+            cpu: { used: usedCpu, total: totalCpu },
+            memory: { used: usedMemory, total: totalMemory },
+            storage: { used: usedStorage, total: totalStorage },
+            nodeCount
+        });
+
         // CPU ゲージ更新
         const cpuPercent = totalCpu > 0 ? Math.round((usedCpu / totalCpu) * 100) : 0;
-        const clusterCpuGauge = this.chartManager.getChart('clusterCpuGauge');
-        if (clusterCpuGauge) {
-            clusterCpuGauge.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
-            clusterCpuGauge.update('none');
-        }
+        this.updateGauge('clusterCpuGauge', cpuPercent);
         this.updateElement('cluster-cpu-percent', `${cpuPercent}%`);
-        this.updateElement('cluster-cpu-details', `${Math.round(usedCpu)} / ${totalCpu} cores`);
+        this.updateElement('cluster-cpu-details', `${Math.round(usedCpu * 10) / 10} / ${totalCpu} cores`);
 
-        // Memory ゲージ更新
-        const memoryPercent = totalMemory > 0 ? Math.round((usedMemory / totalMemory) * 100) : 0;
-        const clusterMemoryGauge = this.chartManager.getChart('clusterMemoryGauge');
-        if (clusterMemoryGauge) {
-            clusterMemoryGauge.data.datasets[0].data = [memoryPercent, 100 - memoryPercent];
-            clusterMemoryGauge.update('none');
-        }
+        // Memory ゲージ更新（GB単位に変換）
+        const memoryGB = {
+            used: totalMemory > 0 ? usedMemory / (1024 * 1024 * 1024) : 0,
+            total: totalMemory > 0 ? totalMemory / (1024 * 1024 * 1024) : 0
+        };
+        const memoryPercent = memoryGB.total > 0 ? Math.round((memoryGB.used / memoryGB.total) * 100) : 0;
+        this.updateGauge('clusterMemoryGauge', memoryPercent);
         this.updateElement('cluster-memory-percent', `${memoryPercent}%`);
-        this.updateElement('cluster-memory-details', `${Math.round(usedMemory)} GB / ${Math.round(totalMemory)} GB`);
+        this.updateElement('cluster-memory-details', `${Math.round(memoryGB.used * 10) / 10} GB / ${Math.round(memoryGB.total * 10) / 10} GB`);
 
-        // Storage ゲージ更新
-        const storagePercent = totalStorage > 0 ? Math.round((usedStorage / totalStorage) * 100) : 0;
-        const clusterStorageGauge = this.chartManager.getChart('clusterStorageGauge');
-        if (clusterStorageGauge) {
-            clusterStorageGauge.data.datasets[0].data = [storagePercent, 100 - storagePercent];
-            clusterStorageGauge.update('none');
-        }
+        // Storage ゲージ更新（TB単位に変換）
+        const storageGB = {
+            used: totalStorage > 0 ? usedStorage / (1024 * 1024 * 1024) : 0,
+            total: totalStorage > 0 ? totalStorage / (1024 * 1024 * 1024) : 0
+        };
+        const storagePercent = storageGB.total > 0 ? Math.round((storageGB.used / storageGB.total) * 100) : 0;
+        this.updateGauge('clusterStorageGauge', storagePercent);
         this.updateElement('cluster-storage-percent', `${storagePercent}%`);
-        this.updateElement('cluster-storage-details', `${Math.round(usedStorage * 10) / 10} TB / ${Math.round(totalStorage * 10) / 10} TB`);
+        this.updateElement('cluster-storage-details', `${Math.round(storageGB.used * 10) / 10} GB / ${Math.round(storageGB.total * 10) / 10} GB`);
+    }
+
+    /**
+     * ゲージチャートを安全に更新
+     */
+    updateGauge(chartName, percent) {
+        try {
+            const chart = this.chartManager.getChart(chartName);
+            if (chart && chart.data && chart.data.datasets && chart.data.datasets[0]) {
+                chart.data.datasets[0].data = [percent, 100 - percent];
+                chart.update('none');
+                console.log(`Updated gauge ${chartName} to ${percent}%`);
+            } else {
+                console.warn(`Chart ${chartName} not found or not properly initialized`);
+            }
+        } catch (error) {
+            console.error(`Error updating gauge ${chartName}:`, error);
+        }
+    }
+
+    /**
+     * デフォルトのゲージ値を設定
+     */
+    setDefaultGaugeValues() {
+        this.updateGauge('clusterCpuGauge', 0);
+        this.updateGauge('clusterMemoryGauge', 0);
+        this.updateGauge('clusterStorageGauge', 0);
+        
+        this.updateElement('cluster-cpu-percent', '0%');
+        this.updateElement('cluster-cpu-details', 'No data');
+        this.updateElement('cluster-memory-percent', '0%');
+        this.updateElement('cluster-memory-details', 'No data');
+        this.updateElement('cluster-storage-percent', '0%');
+        this.updateElement('cluster-storage-details', 'No data');
     }
 
     /**
      * VM統計を更新
      */
     updateVMStatistics(data) {
-        if (!data || !data.vms) return;
+        console.log('Updating VM statistics with data:', data);
+        
+        if (!data) {
+            console.warn('No data available for VM statistics');
+            this.setDefaultVMValues();
+            return;
+        }
 
         let runningVMs = 0, stoppedVMs = 0, totalVMs = 0;
         let totalContainers = 0, runningContainers = 0;
 
-        data.vms.forEach(vm => {
-            if (vm.type === 'qemu') {
-                totalVMs++;
-                if (vm.status === 'running') runningVMs++;
-                else stoppedVMs++;
-            } else if (vm.type === 'lxc') {
-                totalContainers++;
-                if (vm.status === 'running') runningContainers++;
-            }
+        // VMsデータを処理
+        if (data.vms && Array.isArray(data.vms)) {
+            data.vms.forEach(vm => {
+                console.log('Processing VM:', vm);
+                if (vm.type === 'qemu' || vm.template === 0) { // QEMU VMs
+                    totalVMs++;
+                    if (vm.status === 'running') runningVMs++;
+                    else stoppedVMs++;
+                } else if (vm.type === 'lxc') { // LXC Containers
+                    totalContainers++;
+                    if (vm.status === 'running') runningContainers++;
+                }
+            });
+        }
+
+        // 代替データソースを確認（nodes内のVM情報）
+        if (data.nodes && Array.isArray(data.nodes)) {
+            data.nodes.forEach(node => {
+                if (node.vmlist) {
+                    node.vmlist.forEach(vm => {
+                        if (vm.type === 'qemu') {
+                            totalVMs++;
+                            if (vm.status === 'running') runningVMs++;
+                            else stoppedVMs++;
+                        } else if (vm.type === 'lxc') {
+                            totalContainers++;
+                            if (vm.status === 'running') runningContainers++;
+                        }
+                    });
+                }
+            });
+        }
+
+        console.log('VM Statistics:', {
+            totalVMs, runningVMs, stoppedVMs,
+            totalContainers, runningContainers
         });
 
+        // DOM要素を更新
         this.updateElement('vm-running-count', runningVMs);
         this.updateElement('vm-stopped-count', stoppedVMs);
         this.updateElement('vm-total-count', totalVMs);
         this.updateElement('ct-total-count', totalContainers);
+        
+        // 追加の統計情報
+        this.updateElement('vm-running-containers', runningContainers);
+    }
+
+    /**
+     * デフォルトのVM値を設定
+     */
+    setDefaultVMValues() {
+        this.updateElement('vm-running-count', 0);
+        this.updateElement('vm-stopped-count', 0);
+        this.updateElement('vm-total-count', 0);
+        this.updateElement('ct-total-count', 0);
+        this.updateElement('vm-running-containers', 0);
     }
 
     /**
@@ -441,32 +556,27 @@ class ProxmoxViewController {
     }
 
     /**
-     * 要素を更新
+     * DOM要素を更新
      */
     updateElement(elementId, value) {
         const element = document.getElementById(elementId);
         if (element) {
             element.textContent = value;
+            return true;
         }
+        console.warn(`Element ${elementId} not found`);
+        return false;
     }
 
     /**
      * アップタイムをフォーマット
      */
     formatUptime(seconds) {
-        if (!seconds) return 'N/A';
-        
+        if (!seconds) return '-';
         const days = Math.floor(seconds / 86400);
         const hours = Math.floor((seconds % 86400) / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
-        
-        if (days > 0) {
-            return `${days}d ${hours}h`;
-        } else if (hours > 0) {
-            return `${hours}h ${minutes}m`;
-        } else {
-            return `${minutes}m`;
-        }
+        return `${days}d ${hours}h ${minutes}m`;
     }
 
     /**
@@ -487,6 +597,34 @@ class ProxmoxViewController {
      */
     init() {
         console.log('ProxmoxViewController initialized');
+        
+        // イベントリスナーを設定
+        this.setupEventListeners();
+    }
+
+    /**
+     * イベントリスナーを設定
+     */
+    setupEventListeners() {
+        // Show Details ボタンの処理
+        const detailToggleBtn = document.querySelector('.proxmox-section .btn-secondary');
+        if (detailToggleBtn) {
+            detailToggleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleDetailedView();
+            });
+        }
+        
+        // Refresh ボタンの処理
+        const refreshBtn = document.querySelector('.proxmox-section .btn-primary');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (this.dataModel && this.dataModel.fetchProxmoxData) {
+                    this.dataModel.fetchProxmoxData();
+                }
+            });
+        }
     }
 
     /**
