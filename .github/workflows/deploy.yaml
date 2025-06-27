@@ -30,9 +30,15 @@ jobs:
             # screen コマンドの存在確認＆インストール
             command -v screen >/dev/null 2>&1 || apt install -y screen
 
-            # Flask API
+            # Flask API (←ここに環境変数を設定)
             screen -S monitoring-api -X quit || true
-            screen -dmS monitoring-api bash -c 'cd ~/MONITORING-API && python3 main.py'
+            screen -dmS monitoring-api bash -c "
+              export NEXTCLOUD_PASSWORD='${{ NEXTCLOUD_PASSWORD }}';
+              export PROXMOX_PASSWORD_1='${{ PROXMOX_PASSWORD_1 }}';
+              export PROXMOX_PASSWORD_2='${{ PROXMOX_PASSWORD_2 }}';
+              cd ~/MONITORING-API && python3 main.py
+            "
+
 
             # Node.js monitor
             if [ -d ~/MONITORING-API/monitor ]; then
