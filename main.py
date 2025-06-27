@@ -43,8 +43,45 @@ def nextcloud_history():
 @app.route('/metrics/proxmox')
 def proxmox_metrics():
     data = proxmox_api.fetch_proxmox_cluster_any(config['proxmox'])
-    resource_history.insert_resource('proxmox', data)
-    return jsonify(data)
+    if 'error' in data:
+        return jsonify(data)
+
+    filtered_data = {
+        'nodes': [],
+        'vms': [],
+        'containers': []
+    }
+
+    # ノード情報
+    if 'nodes' in data and 'data' in data['nodes']:
+        for node in data['nodes']['data']:
+            filtered_data['nodes'].append({
+                'node': node.get('node'),
+                'status': node.get('status'),
+                'cpu': node.get('cpu'),
+                'memory': node.get('memory')
+            })
+
+    # リソース情報から VM/コンテナを分類
+    if 'cluster_resources' in data and 'data' in data['cluster_resources']:
+        for resource in data['cluster_resources']['data']:
+            if resource.get('type') == 'qemu':
+                filtered_data['vms'].append({
+                    'vmid': resource.get('vmid'),
+                    'status': resource.get('status'),
+                    'cpu': resource.get('cpu'),
+                    'memory': resource.get('memory')
+                })
+            elif resource.get('type') == 'lxc':
+                filtered_data['containers'].append({
+                    'vmid': resource.get('vmid'),
+                    'status': resource.get('status'),
+                    'cpu': resource.get('cpu'),
+                    'memory': resource.get('memory')
+                })
+
+    resource_history.insert_resource('proxmox', filtered_data)
+    return jsonify(filtered_data)
 
 @app.route('/metrics/proxmox/history')
 def proxmox_history():
