@@ -38,10 +38,22 @@ class ChartManager {
             // 異常なサイズの場合は制限
             if (size.width > 2000 || size.height > 2000) {
                 console.warn(`Chart ${chartName} size too large, limiting: ${size.width}x${size.height}`);
-                chart.canvas.style.width = Math.min(size.width, 800) + 'px';
-                chart.canvas.style.height = Math.min(size.height, 600) + 'px';
+                chart.canvas.style.width = Math.min(size.width, 1200) + 'px';
+                chart.canvas.style.height = Math.min(size.height, 800) + 'px';
                 chart.resize();
                 return;
+            }
+            
+            // 小さすぎる場合は最小サイズを確保
+            if (size.width < 100 || size.height < 100) {
+                const parent = chart.canvas.parentElement;
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    chart.canvas.style.width = Math.max(parentRect.width || 200, 200) + 'px';
+                    chart.canvas.style.height = Math.max(parentRect.height || 150, 150) + 'px';
+                    chart.resize();
+                    return;
+                }
             }
             
             // 元のonResizeコールバックがあれば実行
@@ -112,9 +124,13 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 1,
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
+                },
+                layout: {
+                    padding: 0
                 }
             }
         };
@@ -143,6 +159,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 2,
                 scales: {
                     x: { display: false },
                     y: { beginAtZero: true, display: false }
@@ -150,6 +167,14 @@ class ChartManager {
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
+                },
+                layout: {
+                    padding: 0
+                },
+                elements: {
+                    line: {
+                        tension: 0.4
+                    }
                 }
             }
         };
@@ -175,9 +200,13 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 1,
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
+                },
+                layout: {
+                    padding: 0
                 }
             }
         };

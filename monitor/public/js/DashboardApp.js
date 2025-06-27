@@ -358,7 +358,11 @@ class DashboardApp {
      * エラーメッセージを表示
      */
     showError(message) {
-        console.error('Dashboard error:', message);
+        if (typeof DashboardUtils !== 'undefined' && DashboardUtils.showError) {
+            DashboardUtils.showError(message);
+        } else {
+            console.error('Dashboard error:', message);
+        }
         
         // エラー表示用の要素があれば更新
         const errorElement = document.getElementById('error-message');

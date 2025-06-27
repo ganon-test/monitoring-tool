@@ -63,32 +63,9 @@ class MonitoringDashboard {
         }
     }
 
-    // 基本的なヘルパーメソッド
-    formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    formatNumber(num) {
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return num.toString();
-    }
-
-    formatUptime(seconds) {
-        if (!seconds) return '-';
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return `${days}d ${hours}h ${minutes}m`;
-    }
-
     updateElement(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element) element.textContent = value;
+        // 共通関数に委譲
+        updateElement(elementId, value);
     }
 
     showError(message) {

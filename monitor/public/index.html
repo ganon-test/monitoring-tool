@@ -9,25 +9,131 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Canvas size protection -->
+    <!-- Canvas size protection and optimization -->
     <style>
-        canvas {
+        /* Base canvas styles */
+        canvas, .chart-canvas {
             max-width: 100% !important;
             max-height: 100% !important;
-            width: auto !important;
-            height: auto !important;
+            width: 100% !important;
+            height: 100% !important;
         }
         
-        .gauge-container canvas,
+        /* Gauge containers */
+        .gauge-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .gauge-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 280px !important;
+            max-height: 280px !important;
+        }
+        
+        /* Chart containers */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            min-height: 250px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
         .chart-container canvas {
-            max-width: 800px !important;
-            max-height: 600px !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
         }
         
-        /* Prevent infinite growth */
+        /* Metric card optimizations */
+        .metric-card {
+            min-height: 300px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .metric-card .chart-container,
+        .metric-card .gauge-container {
+            flex: 1;
+            min-height: 200px;
+        }
+        
         .metric-card canvas {
-            max-width: 300px !important;
-            max-height: 300px !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        /* History charts get more space */
+        .history-chart {
+            height: 400px;
+            min-height: 350px;
+        }
+        
+        .history-chart canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        /* Timeline charts */
+        .timeline-chart {
+            height: 250px;
+            min-height: 200px;
+        }
+        
+        .timeline-chart canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        /* Grid layout optimization */
+        .main-grid {
+            display: grid;
+            gap: 20px;
+            width: 100%;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        
+        /* Gauge label positioning */
+        .gauge-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+        
+        /* Chart center label positioning */
+        .chart-center-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+        
+        /* Responsive breakpoints */
+        @media (max-width: 768px) {
+            .gauge-container,
+            .chart-container {
+                height: 250px;
+                min-height: 200px;
+            }
+            
+            .metric-card {
+                min-height: 280px;
+            }
         }
     </style>
 </head>
@@ -122,7 +228,7 @@
                     <div class="metric-card">
                         <h3><i class="fas fa-memory"></i> Memory Usage</h3>
                         <div class="gauge-container">
-                            <canvas id="memory-gauge"></canvas>
+                            <canvas id="memory-gauge" class="chart-canvas"></canvas>
                             <div class="gauge-label">
                                 <span id="memory-percent">0%</span>
                                 <small id="memory-details">0 GB / 0 GB</small>
@@ -133,14 +239,16 @@
                     <!-- CPU Load Chart -->
                     <div class="metric-card">
                         <h3><i class="fas fa-microchip"></i> CPU Load</h3>
-                        <canvas id="cpu-load-chart"></canvas>
+                        <div class="chart-container">
+                            <canvas id="cpu-load-chart" class="chart-canvas"></canvas>
+                        </div>
                     </div>
 
                     <!-- Storage Donut Chart -->
                     <div class="metric-card">
                         <h3><i class="fas fa-hdd"></i> Storage Usage</h3>
                         <div class="chart-container">
-                            <canvas id="storage-donut-chart"></canvas>
+                            <canvas id="storage-donut-chart" class="chart-canvas"></canvas>
                             <div class="chart-center-label">
                                 <div id="storage-percent-label">0%</div>
                                 <div class="label-subtitle">Used</div>
