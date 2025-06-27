@@ -463,7 +463,22 @@
         </main>
     </div>
 
-    <script src="dashboard.js"></script>
+    <!-- MVC Architecture Scripts -->
+    <script src="js/models/DataModel.js"></script>
+    <script src="js/charts/ChartManager.js"></script>
+    <script src="js/controllers/NextcloudViewController.js"></script>
+    <script src="js/controllers/ProxmoxViewController.js"></script>
+    <script src="js/managers/SocketManager.js"></script>
+    <script src="js/DashboardApp.js"></script>
     <script src="dashboard-helpers.js"></script>
+    
+    <!-- Legacy (will be gradually deprecated) -->
+    <!-- <script src="dashboard.js"></script> -->
+    
+    <script>
+        // Initialize the MVC dashboard app
+        window.dashboardApp = new DashboardApp();
+        dashboardApp.init();
+    </script>
 </body>
 </html>
