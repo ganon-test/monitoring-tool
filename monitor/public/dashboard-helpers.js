@@ -216,10 +216,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 少し遅延させてすべてのJSファイルが読み込まれるのを待つ
     setTimeout(initializeDashboard, 200);
     
-    // 後方互換性のために旧クラスも作成
+    // 後方互換性のために旧クラスエイリアスを作成（非推奨）
     setTimeout(() => {
-        if (typeof MonitoringDashboard !== 'undefined' && !window.dashboard) {
-            window.dashboard = new MonitoringDashboard();
+        if (typeof DashboardApp !== 'undefined' && !window.MonitoringDashboard && !window.dashboard) {
+            // 非推奨警告を抑制しつつエイリアスを作成
+            window.MonitoringDashboard = DashboardApp;
+            console.warn('MonitoringDashboard is deprecated. Use DashboardApp instead.');
         }
     }, 1000);
 });

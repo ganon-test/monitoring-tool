@@ -6,6 +6,7 @@ class DashboardApp {
         this.currentView = 'nextcloud';
         this.autoRefreshInterval = null;
         this.autoRefreshDelay = 10000; // 10秒
+        this.chartOvergrowthApplied = false; // 無限ループ防止フラグ
         
         // 各コンポーネントを初期化
         this.dataModel = new DataModel();
@@ -339,57 +340,39 @@ class DashboardApp {
     }
 
     /**
-     * チャートの異常成長を防ぐ（強化版）
+     * チャートの異常成長を防ぐ（改善版）
      */
     preventChartOvergrowth() {
-        // 全キャンバス要素をチェック
-        const canvases = document.querySelectorAll('canvas');
-        canvases.forEach(canvas => {
-            const rect = canvas.getBoundingClientRect();
+        if (!this.chartOvergrowthApplied) {
+            this.chartOvergrowthApplied = true;
             
-            // ゲージチャートのみサイズ制限を適用
-            const isGaugeChart = canvas.id.includes('gauge') || 
-                               canvas.id.includes('donut') ||
-                               canvas.id.includes('memory-') ||
-                               canvas.id.includes('storage-');
-            
-            if (isGaugeChart) {
-                // ゲージチャートのサイズ制限
-                if (rect.width > 300 || rect.height > 300) {
-                    console.warn(`Gauge chart ${canvas.id} is too large: ${rect.width}x${rect.height}, resizing...`);
-                    canvas.style.width = '280px !important';
-                    canvas.style.height = '280px !important';
-                    canvas.style.maxWidth = '280px !important';
-                    canvas.style.maxHeight = '280px !important';
+            // ゲージチャートの初期サイズ設定
+            const gaugeCharts = ['storage-donut-chart', 'memory-gauge', 'cluster-memory-gauge', 'cluster-cpu-gauge', 'cluster-storage-gauge'];
+            gaugeCharts.forEach(chartId => {
+                const canvas = document.getElementById(chartId);
+                if (canvas) {
+                    canvas.style.width = '250px';
+                    canvas.style.height = '250px';
+                    canvas.style.maxWidth = '250px';
+                    canvas.style.maxHeight = '250px';
                 }
-            } else {
-                // 折れ線グラフは高さのみ制限
-                if (rect.height > 400) {
-                    console.warn(`Line chart ${canvas.id} height too large: ${rect.height}, limiting height...`);
-                    canvas.style.maxHeight = '350px !important';
-                }
-                
-                // 横幅制限を解除（折れ線グラフは横いっぱいに）
-                if (canvas.style.maxWidth && canvas.style.maxWidth !== 'none') {
+            });
+
+            // 折れ線グラフの初期設定
+            const lineCharts = ['cpu-load-chart', 'memory-history-chart', 'active-users-chart'];
+            lineCharts.forEach(chartId => {
+                const canvas = document.getElementById(chartId);
+                if (canvas) {
+                    // 横幅は制限なし、高さは最初に一度だけ設定
                     canvas.style.maxWidth = 'none';
+                    canvas.style.width = '100%';
+                    canvas.style.height = '350px';
+                    canvas.style.maxHeight = '350px';
                 }
-            }
-        });
-        
-        // 問題のあるゲージチャートを特定して個別対応
-        const gaugeCharts = ['storage-donut-chart', 'memory-gauge', 'cluster-memory-gauge', 'cluster-cpu-gauge', 'cluster-storage-gauge'];
-        gaugeCharts.forEach(chartId => {
-            const canvas = document.getElementById(chartId);
-            if (canvas) {
-                const rect = canvas.getBoundingClientRect();
-                if (rect.width > 300 || rect.height > 300) {
-                    canvas.style.width = '250px !important';
-                    canvas.style.height = '250px !important';
-                    canvas.style.maxWidth = '250px !important';
-                    canvas.style.maxHeight = '250px !important';
-                }
-            }
-        });
+            });
+
+            console.log('Chart overgrowth prevention applied');
+        }
     }
 
     /**

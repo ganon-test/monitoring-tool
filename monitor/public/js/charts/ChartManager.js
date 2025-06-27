@@ -5,6 +5,7 @@ class ChartManager {
     constructor() {
         this.charts = new Map();
         this.chartConfigs = new Map();
+        this.isResizing = false; // リサイズの無限ループ防止フラグ
     }
 
     /**
@@ -635,18 +636,50 @@ class ChartManager {
     }
 
     /**
-     * 全チャートをリサイズ
+     * 全チャートをリサイズ（無限ループ防止版）
      */
     resizeAllCharts() {
-        this.charts.forEach((chart, name) => {
-            try {
-                if (chart && typeof chart.resize === 'function') {
-                    chart.resize();
+        if (this.isResizing) {
+            console.warn('Chart resize already in progress, skipping...');
+            return;
+        }
+        
+        this.isResizing = true;
+        
+        try {
+            this.charts.forEach((chart, name) => {
+                try {
+                    if (chart && typeof chart.resize === 'function') {
+                        // 折れ線グラフとゲージチャートで異なるサイズ制御
+                        const canvas = chart.canvas;
+                        if (canvas) {
+                            const isGaugeChart = name.includes('gauge') || 
+                                               name.includes('donut') ||
+                                               name.includes('memory-') ||
+                                               name.includes('storage-');
+                            
+                            if (isGaugeChart) {
+                                // ゲージチャートは固定サイズ
+                                canvas.style.maxWidth = '280px';
+                                canvas.style.maxHeight = '280px';
+                            } else {
+                                // 折れ線グラフは横幅自由、高さ制限
+                                canvas.style.maxWidth = 'none';
+                                canvas.style.maxHeight = '350px';
+                            }
+                        }
+                        chart.resize();
+                    }
+                } catch (error) {
+                    console.error(`Error resizing chart ${name}:`, error);
                 }
-            } catch (error) {
-                console.error(`Error resizing chart ${name}:`, error);
-            }
-        });
+            });
+        } finally {
+            // リサイズフラグをリセット
+            setTimeout(() => {
+                this.isResizing = false;
+            }, 500);
+        }
     }
 
     /**

@@ -55,7 +55,7 @@ class DataModel {
      */
     async fetchNextcloudData() {
         try {
-            const response = await fetch('/api/nextcloud');
+            const response = await fetch('/metrics/nextcloud');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
@@ -73,7 +73,7 @@ class DataModel {
      */
     async fetchProxmoxData() {
         try {
-            const response = await fetch('/api/proxmox');
+            const response = await fetch('/metrics/proxmox');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
@@ -95,7 +95,7 @@ class DataModel {
         if (cached) return cached;
 
         try {
-            const response = await fetch('/api/nextcloud/history');
+            const response = await fetch('/metrics/nextcloud/history');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
@@ -116,7 +116,7 @@ class DataModel {
         if (cached) return cached;
 
         try {
-            const response = await fetch('/api/proxmox/history');
+            const response = await fetch('/metrics/proxmox/history');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
@@ -133,7 +133,7 @@ class DataModel {
      */
     async fetchProxmoxDetails() {
         try {
-            const response = await fetch('/api/proxmox/detailed');
+            const response = await fetch('/metrics/proxmox/detailed');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
