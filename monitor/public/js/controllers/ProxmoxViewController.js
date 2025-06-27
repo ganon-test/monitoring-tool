@@ -23,7 +23,7 @@ class ProxmoxViewController {
 
         try {
             console.log('ProxmoxViewController updating view with data:', data);
-            
+
             const responseData = data.data || data;
             if (responseData.error || data.error) {
                 this.handleError(responseData.error || data.error);
@@ -47,7 +47,7 @@ class ProxmoxViewController {
                 this.updateNodePerformanceChart(responseData),
                 this.updateNetworkStatistics(responseData),
                 this.updateClusterHealth(responseData),
-                this.updateHardwareMonitoring(responseData),
+                // this.updateHardwareMonitoring(responseData), // removed for per-node display
                 this.updateResourceDistribution(responseData),
                 this.updateVMStatus(responseData),
                 this.updateStorageOverview(responseData)
@@ -65,7 +65,7 @@ class ProxmoxViewController {
             this.handleError(error.message);
         } finally {
             this.isUpdating = false;
-            
+
             if (this.updateQueue.length > 0) {
                 const nextUpdate = this.updateQueue.shift();
                 this.updateView(nextUpdate);
@@ -98,6 +98,9 @@ class ProxmoxViewController {
                 memPercent = ((node.mem / node.maxmem) * 100).toFixed(1);
             }
 
+            // 温度・電力・アップタイムをノード単位で表示
+            const temp = node.temp !== undefined ? node.temp.toFixed(1) : 'N/A';
+            const power = node.power !== undefined ? node.power : 'N/A';
             nodeCard.innerHTML = `
                 <div class="node-header">
                     <div class="node-name">${node.node}</div>
@@ -107,6 +110,8 @@ class ProxmoxViewController {
                     <div>CPU: ${cpuPercent}%</div>
                     <div>Memory: ${memPercent}%</div>
                     <div>Uptime: ${this.formatUptime(node.uptime)}</div>
+                    <div>Temperature: ${temp}°C</div>
+                    <div>Power: ${power} W</div>
                 </div>
             `;
 
@@ -119,7 +124,7 @@ class ProxmoxViewController {
      */
     updateResourceGauges(data) {
         console.log('Updating Proxmox resource gauges with data:', data);
-        
+
         if (!data || !data.nodes) {
             console.warn('No nodes data available for resource gauges');
             // デフォルト値を表示
@@ -136,16 +141,16 @@ class ProxmoxViewController {
             console.log('Processing node:', node);
             if (node.status === 'online') {
                 nodeCount++;
-                
+
                 // CPU計算の改善
                 const maxCpu = node.maxcpu || node.cores || 1;
                 const currentCpu = node.cpu || 0;
                 totalCpu += maxCpu;
                 usedCpu += (currentCpu * maxCpu);
-                
+
                 // Memory計算（バイト単位で処理）
                 let maxMem = 0, usedMem = 0;
-                
+
                 if (node.memory && typeof node.memory === 'object') {
                     // 新しい形式: {used: bytes, total: bytes}
                     maxMem = node.memory.total || 0;
@@ -155,10 +160,10 @@ class ProxmoxViewController {
                     maxMem = node.maxmem;
                     usedMem = node.mem;
                 }
-                
+
                 totalMemory += maxMem;
                 usedMemory += usedMem;
-                
+
                 console.log(`Node ${node.node} memory: ${usedMem}/${maxMem} bytes`);
             }
         });
@@ -232,7 +237,7 @@ class ProxmoxViewController {
         this.updateGauge('clusterCpuGauge', 0);
         this.updateGauge('clusterMemoryGauge', 0);
         this.updateGauge('clusterStorageGauge', 0);
-        
+
         this.updateElement('cluster-cpu-percent', '0%');
         this.updateElement('cluster-cpu-details', 'No data');
         this.updateElement('cluster-memory-percent', '0%');
@@ -246,7 +251,7 @@ class ProxmoxViewController {
      */
     updateVMStatistics(data) {
         console.log('Updating VM statistics with data:', data);
-        
+
         if (!data) {
             console.warn('No data available for VM statistics');
             this.setDefaultVMValues();
@@ -310,7 +315,7 @@ class ProxmoxViewController {
         this.updateElement('vm-stopped-count', stoppedVMs);
         this.updateElement('vm-total-count', totalVMs);
         this.updateElement('ct-total-count', totalContainers);
-        
+
         // Container統計（要素が存在しない場合は警告のみ）
         if (!this.updateElement('vm-running-containers', runningContainers)) {
             // 代替要素名を試行
@@ -390,7 +395,7 @@ class ProxmoxViewController {
         const clusterStatus = data.nodes && data.nodes.some(node => node.status === 'online') ? 'online' : 'offline';
         const statusIcon = document.getElementById('cluster-status-icon');
         const statusText = document.getElementById('cluster-status-text');
-        
+
         if (statusIcon && statusText) {
             if (clusterStatus === 'online') {
                 statusIcon.className = 'health-icon';
@@ -416,7 +421,7 @@ class ProxmoxViewController {
         // 平均温度（プレースホルダー）
         const avgTemp = 35 + Math.random() * 20;
         this.updateElement('avg-cpu-temp', `${Math.round(avgTemp)}°C`);
-        
+
         const tempBar = document.getElementById('temp-bar-fill');
         if (tempBar) {
             const tempPercent = Math.min((avgTemp - 20) / 60 * 100, 100);
@@ -425,7 +430,7 @@ class ProxmoxViewController {
 
         // 消費電力（プレースホルダー）
         this.updateElement('power-consumption', `${Math.round(150 + Math.random() * 100)}W`);
-        
+
         // クラスターアップタイム（プレースホルダー）
         const uptimeDays = Math.floor(Math.random() * 100 + 30);
         this.updateElement('cluster-uptime', `${uptimeDays} days`);
@@ -454,7 +459,7 @@ class ProxmoxViewController {
      */
     updateVMStatus(data) {
         console.log('Updating VM Status with data:', data);
-        
+
         const container = document.getElementById('vm-status');
         if (!container) {
             console.warn('VM status container not found');
@@ -464,7 +469,7 @@ class ProxmoxViewController {
         container.innerHTML = '';
 
         let allVMs = [];
-        
+
         // 複数のデータソースからVMを収集
         if (data.vms && Array.isArray(data.vms)) {
             allVMs = allVMs.concat(data.vms);
@@ -472,7 +477,7 @@ class ProxmoxViewController {
         if (data.containers && Array.isArray(data.containers)) {
             allVMs = allVMs.concat(data.containers);
         }
-        
+
         // ノード内のVMリストも確認
         if (data.nodes && Array.isArray(data.nodes)) {
             data.nodes.forEach(node => {
@@ -485,7 +490,7 @@ class ProxmoxViewController {
         // 重複を除去（VMIDベース）
         const uniqueVMs = [];
         const seenVMIds = new Set();
-        
+
         allVMs.forEach(vm => {
             const vmid = vm.vmid || vm.id || vm.name;
             if (vmid && !seenVMIds.has(vmid)) {
@@ -505,12 +510,12 @@ class ProxmoxViewController {
         uniqueVMs.slice(0, 10).forEach(vm => {
             const vmItem = document.createElement('div');
             vmItem.className = 'vm-item';
-            
+
             const status = vm.status || 'unknown';
             const statusClass = status === 'running' ? 'running' : 'stopped';
             const vmName = vm.name || vm.vmid || vm.id || 'Unknown';
             const vmType = vm.type || (vm.template ? 'template' : 'vm');
-            
+
             vmItem.innerHTML = `
                 <div class="vm-info">
                     <div class="vm-name">${vmName}</div>
@@ -528,7 +533,7 @@ class ProxmoxViewController {
      */
     updateStorageOverview(data) {
         console.log('Updating Storage Overview with data:', data);
-        
+
         const container = document.getElementById('storage-overview');
         if (!container) {
             console.warn('Storage overview container not found');
@@ -542,14 +547,14 @@ class ProxmoxViewController {
         if (data && data.storage && Array.isArray(data.storage)) {
             storageData = data.storage;
         }
-        
+
         // ノードからストレージ情報を抽出（代替手段）
         if (storageData.length === 0 && data.nodes && Array.isArray(data.nodes)) {
             data.nodes.forEach(node => {
                 if (node.storage && Array.isArray(node.storage)) {
                     storageData = storageData.concat(node.storage);
                 }
-                
+
                 // ノードのルートディスクも追加
                 if (node.disk && node.maxdisk) {
                     storageData.push({
@@ -562,7 +567,7 @@ class ProxmoxViewController {
                 }
             });
         }
-        
+
         // テストデータを生成（実際のデータがない場合）
         if (storageData.length === 0) {
             console.log('No storage data found, generating test data');
@@ -588,11 +593,11 @@ class ProxmoxViewController {
             if (storage.enabled !== false) {
                 const storageItem = document.createElement('div');
                 storageItem.className = 'storage-item';
-                
+
                 const usedGB = storage.used ? (storage.used / (1024 * 1024 * 1024)).toFixed(1) : '0';
                 const totalGB = storage.total ? (storage.total / (1024 * 1024 * 1024)).toFixed(1) : '0';
                 const percent = storage.total > 0 ? Math.round((storage.used / storage.total) * 100) : 0;
-                
+
                 storageItem.innerHTML = `
                     <div class="storage-header">
                         <div class="storage-name">${storage.storage || storage.node || 'Unknown'}</div>
@@ -618,7 +623,7 @@ class ProxmoxViewController {
         try {
             const historyResponse = await this.dataModel.fetchProxmoxHistory();
             const history = historyResponse.data || historyResponse;
-            
+
             if (history && history.length > 0) {
                 this.updateHistoryChart(history);
             }
@@ -641,11 +646,11 @@ class ProxmoxViewController {
         history.slice(-20).forEach(item => {
             const date = new Date(item.timestamp);
             labels.push(date.toLocaleTimeString());
-            
+
             const data = item.data;
             if (data.nodes && data.nodes.length > 0) {
                 let totalCpu = 0, totalMem = 0, totalMaxMem = 0, nodeCount = 0;
-                
+
                 data.nodes.forEach(node => {
                     totalCpu += node.cpu || 0;
                     if (node.memory && node.memory.used && node.memory.total) {
@@ -657,7 +662,7 @@ class ProxmoxViewController {
 
                 const avgCpu = nodeCount > 0 ? (totalCpu / nodeCount) * 100 : 0;
                 const avgMem = totalMaxMem > 0 ? (totalMem / totalMaxMem) * 100 : 0;
-                
+
                 cpuData.push(avgCpu);
                 memData.push(avgMem);
             } else {
@@ -677,18 +682,18 @@ class ProxmoxViewController {
      */
     toggleDetailedView() {
         this.detailedMode = !this.detailedMode;
-        
+
         const detailedSections = document.querySelectorAll('.detailed-section');
         const toggleText = document.getElementById('detail-toggle-text');
-        
+
         detailedSections.forEach(section => {
             section.style.display = this.detailedMode ? 'block' : 'none';
         });
-        
+
         if (toggleText) {
             toggleText.textContent = this.detailedMode ? 'Hide Details' : 'Show Details';
         }
-        
+
         // チャートリサイズ
         setTimeout(() => {
             this.chartManager.resizeAllCharts();
@@ -702,7 +707,7 @@ class ProxmoxViewController {
         const statusElement = document.getElementById('proxmox-status');
         if (statusElement) {
             const dot = statusElement.querySelector('.status-dot');
-            
+
             if (isOnline) {
                 dot.classList.remove('offline');
                 dot.classList.add('online');
@@ -763,7 +768,7 @@ class ProxmoxViewController {
      */
     initializeWithTestData() {
         console.log('Initializing Proxmox view with test data...');
-        
+
         const testData = {
             nodes: [
                 {
@@ -824,7 +829,7 @@ class ProxmoxViewController {
                 { vmid: 201, name: 'Container-2', type: 'lxc', status: 'stopped' }
             ]
         };
-        
+
         this.updateView(testData);
     }
 
@@ -855,7 +860,7 @@ class ProxmoxViewController {
                 this.toggleDetailedView();
             });
         }
-        
+
         // Refresh ボタンの処理
         const refreshBtn = document.querySelector('.proxmox-section .btn-primary');
         if (refreshBtn) {
@@ -910,8 +915,9 @@ class ProxmoxViewController {
         all.forEach(item => {
             const div = document.createElement('div');
             div.className = 'detail-vm';
+            const typeStr = item.type ? item.type.toUpperCase() : 'UNKNOWN';
             div.innerHTML = `
-                <h4>${item.name} (${item.type.toUpperCase()})</h4>
+                <h4>${item.name} (${typeStr})</h4>
                 <p>ID: ${item.vmid} - Status: ${item.status}</p>
             `;
             vmContainer.appendChild(div);
