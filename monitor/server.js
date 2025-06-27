@@ -5,6 +5,9 @@ const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
 
+// Force IPv4 for axios
+axios.defaults.family = 4;
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -89,12 +92,13 @@ io.on('connection', (socket) => {
   const sendData = async () => {
     try {
       console.log('Fetching data from Python API...');
+      console.log('API_BASE:', API_BASE);
       const [nextcloud, proxmox] = await Promise.all([
-        axios.get(`${API_BASE}/metrics/nextcloud`).catch((err) => {
+        axios.get('http://127.0.0.1:5000/metrics/nextcloud').catch((err) => {
           console.error('Nextcloud API error:', err.message);
           return { data: { error: 'Nextcloud unavailable' } };
         }),
-        axios.get(`${API_BASE}/metrics/proxmox`).catch((err) => {
+        axios.get('http://127.0.0.1:5000/metrics/proxmox').catch((err) => {
           console.error('Proxmox API error:', err.message);
           return { data: { error: 'Proxmox unavailable' } };
         })
