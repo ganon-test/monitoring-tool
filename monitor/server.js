@@ -88,10 +88,20 @@ io.on('connection', (socket) => {
   // Send initial data
   const sendData = async () => {
     try {
+      console.log('Fetching data from Python API...');
       const [nextcloud, proxmox] = await Promise.all([
-        axios.get(`${API_BASE}/metrics/nextcloud`).catch(() => ({ data: { error: 'Nextcloud unavailable' } })),
-        axios.get(`${API_BASE}/metrics/proxmox`).catch(() => ({ data: { error: 'Proxmox unavailable' } }))
+        axios.get(`${API_BASE}/metrics/nextcloud`).catch((err) => {
+          console.error('Nextcloud API error:', err.message);
+          return { data: { error: 'Nextcloud unavailable' } };
+        }),
+        axios.get(`${API_BASE}/metrics/proxmox`).catch((err) => {
+          console.error('Proxmox API error:', err.message);
+          return { data: { error: 'Proxmox unavailable' } };
+        })
       ]);
+
+      console.log('Nextcloud response:', nextcloud.data);
+      console.log('Proxmox response:', proxmox.data);
 
       socket.emit('data-update', {
         nextcloud: nextcloud.data,
@@ -99,6 +109,7 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
+      console.error('WebSocket data send error:', error);
       socket.emit('error', { message: error.message });
     }
   };

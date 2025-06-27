@@ -162,6 +162,7 @@ class MonitoringDashboard {
 
     setupSocketListeners() {
         this.socket.on('data-update', (data) => {
+            console.log('Received data update:', data);
             this.data = data;
             this.updateNextcloudData(data.nextcloud);
             this.updateProxmoxData(data.proxmox);
@@ -192,10 +193,12 @@ class MonitoringDashboard {
     }
 
     updateNextcloudData(response) {
+        console.log('Updating Nextcloud data:', response);
         // 新しいレスポンス形式に対応
         const data = response.data || response;
         
         if (data.error || response.error) {
+            console.error('Nextcloud error:', data.error || response.error);
             this.updateServiceStatus('nextcloud', false);
             return;
         }
@@ -278,10 +281,12 @@ class MonitoringDashboard {
     }
 
     updateProxmoxData(response) {
+        console.log('Updating Proxmox data:', response);
         // 新しいレスポンス形式に対応
         const data = response.data || response;
         
         if (data.error || response.error) {
+            console.error('Proxmox error:', data.error || response.error);
             this.updateServiceStatus('proxmox', false);
             return;
         }
@@ -290,16 +295,19 @@ class MonitoringDashboard {
 
         // Update cluster nodes
         if (data.nodes) {
+            console.log('Updating cluster nodes:', data.nodes);
             this.updateClusterNodes(data.nodes);
         }
 
         // Update resource distribution - 新しい形式に対応
         if (data.nodes && data.vms && data.containers) {
+            console.log('Updating resource distribution');
             this.updateResourceDistributionNew(data);
         }
 
         // Update VM status - 新しい形式に対応
         if (data.vms && data.containers) {
+            console.log('Updating VM status');
             this.updateVMStatusNew(data.vms, data.containers);
         }
 
@@ -415,7 +423,10 @@ class MonitoringDashboard {
     async loadNextcloudHistory() {
         try {
             const response = await fetch('/api/nextcloud/history');
-            const history = await response.json();
+            const historyResponse = await response.json();
+            
+            // 新しいレスポンス形式に対応
+            const history = historyResponse.data || historyResponse;
             
             if (history && history.length > 0) {
                 const labels = [];
@@ -426,8 +437,9 @@ class MonitoringDashboard {
                     const date = new Date(item.timestamp);
                     labels.push(date.toLocaleTimeString());
                     
-                    if (item.data.ocs && item.data.ocs.data.nextcloud && item.data.ocs.data.nextcloud.system) {
-                        const system = item.data.ocs.data.nextcloud.system;
+                    const data = item.data;
+                    if (data.ocs && data.ocs.data.nextcloud && data.ocs.data.nextcloud.system) {
+                        const system = data.ocs.data.nextcloud.system;
                         const cpuLoad = system.cpuload ? system.cpuload[0] : 0;
                         const memUsage = system.mem_total && system.mem_free ? 
                             ((system.mem_total - system.mem_free) / system.mem_total * 100) : 0;
@@ -453,7 +465,10 @@ class MonitoringDashboard {
     async loadProxmoxHistory() {
         try {
             const response = await fetch('/api/proxmox/history');
-            const history = await response.json();
+            const historyResponse = await response.json();
+            
+            // 新しいレスポンス形式に対応
+            const history = historyResponse.data || historyResponse;
             
             if (history && history.length > 0) {
                 const labels = [];
@@ -464,16 +479,17 @@ class MonitoringDashboard {
                     const date = new Date(item.timestamp);
                     labels.push(date.toLocaleTimeString());
                     
-                    if (item.data.cluster_resources && item.data.cluster_resources.data) {
+                    const data = item.data;
+                    if (data.nodes && data.nodes.length > 0) {
                         let totalCpu = 0, totalMem = 0, totalMaxMem = 0, nodeCount = 0;
                         
-                        item.data.cluster_resources.data.forEach(resource => {
-                            if (resource.type === 'node') {
-                                totalCpu += resource.cpu || 0;
-                                totalMem += resource.mem || 0;
-                                totalMaxMem += resource.maxmem || 0;
-                                nodeCount++;
+                        data.nodes.forEach(node => {
+                            totalCpu += node.cpu || 0;
+                            if (node.memory && node.memory.used && node.memory.total) {
+                                totalMem += node.memory.used;
+                                totalMaxMem += node.memory.total;
                             }
+                            nodeCount++;
                         });
 
                         const avgCpu = nodeCount > 0 ? (totalCpu / nodeCount) * 100 : 0;
@@ -520,8 +536,34 @@ class MonitoringDashboard {
     }
 
     refreshData() {
+        console.log('Manual refresh triggered');
         // Trigger a manual refresh
         this.socket.emit('refresh-request');
+        
+        // Also fetch data directly
+        this.fetchDataDirectly();
+    }
+
+    async fetchDataDirectly() {
+        try {
+            console.log('Fetching data directly from APIs...');
+            const [nextcloudResponse, proxmoxResponse] = await Promise.all([
+                fetch('/api/nextcloud').catch(() => ({ json: () => ({ error: 'Nextcloud unavailable' }) })),
+                fetch('/api/proxmox').catch(() => ({ json: () => ({ error: 'Proxmox unavailable' }) }))
+            ]);
+
+            const nextcloudData = await nextcloudResponse.json();
+            const proxmoxData = await proxmoxResponse.json();
+
+            console.log('Direct fetch - Nextcloud:', nextcloudData);
+            console.log('Direct fetch - Proxmox:', proxmoxData);
+
+            this.updateNextcloudData(nextcloudData);
+            this.updateProxmoxData(proxmoxData);
+            this.updateLastUpdateTime(new Date().toISOString());
+        } catch (error) {
+            console.error('Error in direct fetch:', error);
+        }
     }
 
     formatBytes(bytes) {
@@ -560,13 +602,25 @@ class MonitoringDashboard {
 
     async loadProxmoxDetails() {
         try {
+            console.log('Loading Proxmox details...');
             const response = await fetch('/api/proxmox/detailed');
-            const detailedData = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const responseData = await response.json();
+            console.log('Proxmox details response:', responseData);
+            
+            // 新しいレスポンス形式に対応
+            const detailedData = responseData.data || responseData;
             
             if (detailedData && !detailedData.error) {
                 this.updateStorageOverview(detailedData.storage);
                 this.updateDetailedNodes(detailedData.nodes);
                 this.updateDetailedVMs(detailedData.vms, detailedData.containers);
+            } else {
+                console.error('Error in detailed data:', detailedData.error || 'Unknown error');
             }
         } catch (error) {
             console.error('Error loading Proxmox details:', error);
@@ -760,5 +814,12 @@ function toggleDetailedView() {
 // Initialize dashboard when page loads
 let dashboard;
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Initializing dashboard...');
     dashboard = new MonitoringDashboard();
+    
+    // 初期データロード
+    setTimeout(() => {
+        console.log('Loading initial data...');
+        dashboard.refreshData();
+    }, 1000);
 });
