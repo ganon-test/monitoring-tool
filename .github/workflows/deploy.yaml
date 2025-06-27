@@ -33,9 +33,9 @@ jobs:
             # Flask API (←ここに環境変数を設定)
             screen -S monitoring-api -X quit || true
             screen -dmS monitoring-api bash -c "
-              export NEXTCLOUD_PASSWORD='${{ NEXTCLOUD_PASSWORD }}';
-              export PROXMOX_PASSWORD_1='${{ PROXMOX_PASSWORD_1 }}';
-              export PROXMOX_PASSWORD_2='${{ PROXMOX_PASSWORD_2 }}';
+              export NEXTCLOUD_PASSWORD='${{ secrets.NEXTCLOUD_PASSWORD }}';
+              export PROXMOX_PASSWORD_1='${{ secrets.PROXMOX_PASSWORD_1 }}';
+              export PROXMOX_PASSWORD_2='${{ secrets.PROXMOX_PASSWORD_2 }}';
               cd ~/MONITORING-API && python3 main.py
             "
 
