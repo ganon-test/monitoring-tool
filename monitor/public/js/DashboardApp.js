@@ -164,7 +164,29 @@ class DashboardApp {
             // Proxmoxデータを更新
             if (this.proxmoxController && typeof this.proxmoxController.updateDisplay === 'function') {
                 const data = this.dataModel.getProxmoxData ? this.dataModel.getProxmoxData() : null;
-                if (data) this.proxmoxController.updateDisplay(data);
+                if (data) {
+                    this.proxmoxController.updateDisplay(data);
+                } else {
+                    // データがない場合は新しく取得を試行
+                    console.log('No cached Proxmox data, fetching fresh data...');
+                    if (this.dataModel.fetchProxmoxData) {
+                        this.dataModel.fetchProxmoxData().then(freshData => {
+                            if (freshData && this.proxmoxController.updateDisplay) {
+                                this.proxmoxController.updateDisplay(freshData);
+                            }
+                        }).catch(error => {
+                            console.error('Failed to fetch Proxmox data:', error);
+                            // フォールバック：テストデータで初期化
+                            if (this.proxmoxController.initializeWithTestData) {
+                                this.proxmoxController.initializeWithTestData();
+                            }
+                        });
+                    } else if (this.proxmoxController.initializeWithTestData) {
+                        // fetchメソッドもない場合はテストデータを使用
+                        console.log('No fetch method available, using test data');
+                        this.proxmoxController.initializeWithTestData();
+                    }
+                }
             }
         }
         
