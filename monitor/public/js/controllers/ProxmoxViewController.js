@@ -481,4 +481,18 @@ class ProxmoxViewController {
             this.handleError(error.message);
         }
     }
+
+    /**
+     * 初期化メソッド
+     */
+    init() {
+        console.log('ProxmoxViewController initialized');
+    }
+
+    /**
+     * 表示を更新
+     */
+    updateDisplay(data) {
+        this.updateView(data);
+    }
 }

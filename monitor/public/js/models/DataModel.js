@@ -13,6 +13,44 @@ class DataModel {
     }
 
     /**
+     * 初期化メソッド
+     */
+    async init() {
+        console.log('DataModel initialized');
+        // 初期化時に必要な処理があればここに追加
+    }
+
+    /**
+     * Nextcloudデータを更新
+     */
+    updateNextcloudData(data) {
+        this.data.nextcloud = data;
+        this.data.lastUpdate = new Date();
+    }
+
+    /**
+     * Proxmoxデータを更新
+     */
+    updateProxmoxData(data) {
+        this.data.proxmox = data;
+        this.data.lastUpdate = new Date();
+    }
+
+    /**
+     * Nextcloudデータを取得
+     */
+    getNextcloudData() {
+        return this.data.nextcloud;
+    }
+
+    /**
+     * Proxmoxデータを取得
+     */
+    getProxmoxData() {
+        return this.data.proxmox;
+    }
+
+    /**
      * Nextcloudデータを取得
      */
     async fetchNextcloudData() {

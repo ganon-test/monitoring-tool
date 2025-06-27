@@ -283,4 +283,23 @@ class SocketManager {
             listeners: Array.from(this.listeners.keys())
         };
     }
+
+    /**
+     * 初期化メソッド（データコールバック付き）
+     */
+    init(dataCallback) {
+        console.log('SocketManager initialized with data callback');
+        
+        // データ更新コールバックを設定
+        this.dataCallback = dataCallback;
+        
+        // データ更新イベントをリッスン
+        if (this.socket) {
+            this.socket.on('data-update', (data) => {
+                if (this.dataCallback) {
+                    this.dataCallback(data);
+                }
+            });
+        }
+    }
 }

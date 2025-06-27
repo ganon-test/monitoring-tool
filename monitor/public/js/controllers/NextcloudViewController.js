@@ -10,6 +10,20 @@ class NextcloudViewController {
     }
 
     /**
+     * 初期化メソッド
+     */
+    init() {
+        console.log('NextcloudViewController initialized');
+    }
+
+    /**
+     * 表示を更新
+     */
+    updateDisplay(data) {
+        this.updateView(data);
+    }
+
+    /**
      * Nextcloudデータでビューを更新
      */
     async updateView(data) {

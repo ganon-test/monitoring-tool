@@ -8,6 +8,14 @@ class ChartManager {
     }
 
     /**
+     * 初期化メソッド
+     */
+    init() {
+        console.log('ChartManager initialized');
+        this.initializeAllCharts();
+    }
+
+    /**
      * 全チャートを初期化
      */
     initializeAllCharts() {

@@ -37,18 +37,27 @@ function toggleDetailedView() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing MVC Dashboard...');
     
-    // 新しいMVCアプリケーションを初期化
-    if (typeof DashboardApp !== 'undefined') {
-        window.dashboardApp = new DashboardApp();
-        window.dashboardApp.init();
-    } else {
-        console.error('DashboardApp class not found. Make sure all MVC files are loaded.');
+    // DashboardAppクラスが利用可能になるまで待機
+    function initializeDashboard() {
+        if (typeof DashboardApp !== 'undefined') {
+            window.dashboardApp = new DashboardApp();
+            window.dashboardApp.init();
+            console.log('DashboardApp initialized successfully');
+        } else {
+            console.log('DashboardApp not yet available, retrying...');
+            setTimeout(initializeDashboard, 100);
+        }
     }
     
+    // 少し遅延させてすべてのJSファイルが読み込まれるのを待つ
+    setTimeout(initializeDashboard, 500);
+    
     // 後方互換性のために旧クラスも作成
-    if (typeof MonitoringDashboard !== 'undefined') {
-        window.dashboard = new MonitoringDashboard();
-    }
+    setTimeout(() => {
+        if (typeof MonitoringDashboard !== 'undefined' && !window.dashboard) {
+            window.dashboard = new MonitoringDashboard();
+        }
+    }, 1000);
 });
 
 // Utility functions
