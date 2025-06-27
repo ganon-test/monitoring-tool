@@ -106,6 +106,47 @@ body::before {
     background-clip: text;
 }
 
+/* View Toggle Buttons */
+.view-toggle {
+    display: flex;
+    gap: 0;
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.btn-toggle {
+    padding: 12px 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: calc(var(--border-radius) - 4px);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-toggle:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-toggle.active {
+    background: var(--accent-blue);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-toggle.active:hover {
+    background: var(--accent-blue);
+    color: white;
+}
+
 .status-indicators {
     display: flex;
     gap: 2rem;
@@ -334,204 +375,293 @@ body::before {
     color: var(--text-secondary);
 }
 
-/* Gauge Container */
-.gauge-container {
-    position: relative;
-    height: 200px;
+/* VM Statistics Grid */
+.vm-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.vm-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.vm-stat-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-2px);
+}
+
+.vm-stat-card .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 1.2rem;
+}
+
+.vm-stat-card .stat-icon.running {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-green);
+}
+
+.vm-stat-card .stat-icon.stopped {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--accent-red);
+}
+
+.vm-stat-card .stat-icon.total {
+    background: rgba(0, 212, 255, 0.2);
+    color: var(--accent-blue);
+}
+
+.vm-stat-card .stat-icon.container {
+    background: rgba(139, 92, 246, 0.2);
+    color: var(--accent-purple);
+}
+
+.vm-stat-card .stat-content {
+    text-align: left;
+}
+
+.vm-stat-card .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.vm-stat-card .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Network Statistics */
+.network-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.network-metric {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.network-metric .metric-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 212, 255, 0.2);
+    color: var(--accent-blue);
+}
+
+.network-metric .metric-content {
+    text-align: left;
+}
+
+.network-metric .metric-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.network-metric .metric-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.network-chart-mini {
+    grid-column: 1 / -1;
+    height: 60px;
+    margin-top: 0.5rem;
+}
+
+.network-chart-mini canvas {
+    width: 100%;
+    height: 100%;
+}
+
+/* Health Indicators */
+.health-indicators {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.health-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.health-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.health-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-green);
+}
+
+.health-icon.warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--accent-yellow);
+}
+
+.health-icon.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--accent-red);
+}
+
+.health-content {
+    text-align: left;
+}
+
+.health-title {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.health-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Hardware Monitoring */
+.hardware-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.hardware-metric {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+.hardware-metric .metric-header {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+/* Temperature Gauge */
+.temperature-gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.temp-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+}
+
+.temp-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.temp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-yellow) 50%, var(--accent-red) 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Power and Uptime Display */
+.power-display,
+.uptime-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.power-display i {
+    color: var(--accent-yellow);
+}
+
+.uptime-display i {
+    color: var(--accent-green);
+}
+
+/* Additional Gauge Containers */
+.gauge-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.gauge-container canvas {
+    width: 120px;
+    height: 120px;
 }
 
 .gauge-label {
-    position: absolute;
     text-align: center;
 }
 
 .gauge-label span {
-    font-size: 2rem;
+    font-size: 1.2rem;
     font-weight: 700;
-    background: var(--gradient-blue);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    display: block;
 }
 
 .gauge-label small {
-    display: block;
-    color: var(--text-secondary);
-    margin-top: 4px;
-}
-
-/* CPU Metrics */
-.cpu-metrics {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.cpu-core {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.cpu-label {
-    width: 60px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.cpu-bar {
-    flex: 1;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.cpu-fill {
-    height: 100%;
-    background: var(--gradient-blue);
-    transition: width 0.5s ease;
-    border-radius: 4px;
-}
-
-.cpu-core:nth-child(2) .cpu-fill {
-    background: var(--gradient-purple);
-}
-
-.cpu-core:nth-child(3) .cpu-fill {
-    background: var(--gradient-green);
-}
-
-.cpu-value {
-    width: 50px;
-    text-align: right;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-/* Storage */
-.storage-info {
-    text-align: center;
-}
-
-.storage-bar {
-    height: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 12px;
-}
-
-.storage-used {
-    height: 100%;
-    background: var(--gradient-orange);
-    transition: width 0.5s ease;
-    border-radius: 10px;
-}
-
-.storage-details {
-    color: var(--text-secondary);
-}
-
-/* Cluster Nodes */
-.cluster-nodes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-}
-
-.node-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 1rem;
-    transition: var(--transition);
-}
-
-.node-card:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.02);
-}
-
-.node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.node-name {
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.node-status {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.node-status.online {
-    background: var(--accent-green);
-    box-shadow: 0 0 8px var(--accent-green);
-}
-
-.node-status.offline {
-    background: var(--accent-red);
-    box-shadow: 0 0 8px var(--accent-red);
-}
-
-.node-details {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-/* VM Status */
-.vm-status {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.vm-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-}
-
-.vm-name {
-    font-weight: 500;
-}
-
-.vm-status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
     font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.vm-status-badge.running {
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--accent-green);
-    border: 1px solid var(--accent-green);
-}
-
-.vm-status-badge.stopped {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--accent-red);
-    border: 1px solid var(--accent-red);
-}
-
-/* Charts */
-canvas {
-    max-height: 300px;
+    color: var(--text-secondary);
+    margin-top: 2px;
 }
 
 /* Loading Animation */
@@ -547,6 +677,158 @@ canvas {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Circular Progress Bars */
+.circular-progress {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+}
+
+.circular-progress svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.circular-progress .progress-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 8;
+}
+
+.circular-progress .progress-fill {
+    fill: none;
+    stroke: var(--accent-blue);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 0 251.2;
+    transition: stroke-dasharray 0.3s ease;
+}
+
+.circular-progress .progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.circular-progress .progress-text span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* PHP Metrics Grid */
+.php-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.php-metric {
+    text-align: center;
+}
+
+.php-metric .metric-header {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+#opcache-progress .progress-fill {
+    stroke: var(--accent-green);
+}
+
+#php-memory-progress .progress-fill {
+    stroke: var(--accent-purple);
+}
+
+#cache-progress .progress-fill {
+    stroke: var(--accent-blue);
+}
+
+/* Database Metrics */
+.db-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.db-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.db-metric .db-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.db-metric .db-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.db-metric .progress-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin: 0 1rem;
+    overflow: hidden;
+}
+
+.db-metric .progress-fill {
+    height: 100%;
+    background: var(--gradient-blue);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.db-metric .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Chart Container Improvements */
+.chart-container {
+    position: relative;
+    height: 200px;
+}
+
+.chart-center-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.chart-center-label > div {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chart-center-label .label-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
 }
 
 /* Responsive Design */
@@ -582,6 +864,18 @@ canvas {
         gap: 1rem;
     }
     
+    .view-toggle {
+        order: -1; /* Move toggle buttons to top on mobile */
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .btn-toggle {
+        flex: 1;
+        text-align: center;
+        justify-content: center;
+    }
+    
     .status-indicators {
         gap: 1rem;
     }
@@ -607,6 +901,36 @@ canvas {
         flex-direction: column;
         gap: 1rem;
         align-items: stretch;
+    }
+    
+    .vm-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .hardware-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .network-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .health-indicators {
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .vm-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .vm-stat-card {
+        padding: 0.75rem;
+    }
+    
+    .hardware-metric {
+        padding: 0.75rem;
     }
 }
 
