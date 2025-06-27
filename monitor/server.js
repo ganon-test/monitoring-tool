@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
 });
 
 // API endpoints to fetch data from Python backend
-app.get('/api/nextcloud', async (req, res) => {
+app.get('/nextcloud', async (req, res) => {
   try {
     const response = await axios.get(`${API_BASE}/metrics/nextcloud`);
     res.json(response.data);
@@ -37,7 +37,7 @@ app.get('/api/nextcloud', async (req, res) => {
   }
 });
 
-app.get('/api/nextcloud/history', async (req, res) => {
+app.get('/nextcloud/history', async (req, res) => {
   try {
     const response = await axios.get(`${API_BASE}/metrics/nextcloud/history`);
     res.json(response.data);
@@ -46,7 +46,7 @@ app.get('/api/nextcloud/history', async (req, res) => {
   }
 });
 
-app.get('/api/proxmox', async (req, res) => {
+app.get('/proxmox', async (req, res) => {
   try {
     const response = await axios.get(`${API_BASE}/metrics/proxmox`);
     res.json(response.data);
@@ -55,7 +55,7 @@ app.get('/api/proxmox', async (req, res) => {
   }
 });
 
-app.get('/api/proxmox/detailed', async (req, res) => {
+app.get('/proxmox/detailed', async (req, res) => {
   try {
     console.log('Requesting detailed data from:', `${API_BASE}/metrics/proxmox/detailed`);
     const response = await axios.get(`${API_BASE}/metrics/proxmox/detailed`);
@@ -72,7 +72,7 @@ app.get('/api/proxmox/detailed', async (req, res) => {
   }
 });
 
-app.get('/api/proxmox/history', async (req, res) => {
+app.get('/proxmox/history', async (req, res) => {
   try {
     const response = await axios.get(`${API_BASE}/metrics/proxmox/history`);
     res.json(response.data);
