@@ -417,6 +417,12 @@ class ChartManager {
         const ctx = document.getElementById('cluster-cpu-gauge');
         if (!ctx) return;
 
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -424,12 +430,16 @@ class ChartManager {
                     data: [0, 100],
                     backgroundColor: ['#f97316', 'rgba(255, 255, 255, 0.1)'],
                     borderWidth: 0,
-                    cutout: '80%'
+                    cutout: '75%'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
@@ -448,6 +458,12 @@ class ChartManager {
         const ctx = document.getElementById('cluster-memory-gauge');
         if (!ctx) return;
 
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -455,12 +471,16 @@ class ChartManager {
                     data: [0, 100],
                     backgroundColor: ['#8b5cf6', 'rgba(255, 255, 255, 0.1)'],
                     borderWidth: 0,
-                    cutout: '80%'
+                    cutout: '75%'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
@@ -479,6 +499,12 @@ class ChartManager {
         const ctx = document.getElementById('cluster-storage-gauge');
         if (!ctx) return;
 
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -486,12 +512,16 @@ class ChartManager {
                     data: [0, 100],
                     backgroundColor: ['#10b981', 'rgba(255, 255, 255, 0.1)'],
                     borderWidth: 0,
-                    cutout: '80%'
+                    cutout: '75%'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }

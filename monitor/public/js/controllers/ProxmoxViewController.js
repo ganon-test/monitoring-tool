@@ -49,7 +49,8 @@ class ProxmoxViewController {
                 this.updateClusterHealth(responseData),
                 this.updateHardwareMonitoring(responseData),
                 this.updateResourceDistribution(responseData),
-                this.updateVMStatus(responseData)
+                this.updateVMStatus(responseData),
+                this.updateStorageOverview(responseData)
             ]);
 
             // 履歴データを読み込み
@@ -421,27 +422,119 @@ class ProxmoxViewController {
      * VMステータスを更新
      */
     updateVMStatus(data) {
-        if (!data.vms || !data.containers) return;
-
+        console.log('Updating VM Status with data:', data);
+        
         const container = document.getElementById('vm-status');
-        if (!container) return;
+        if (!container) {
+            console.warn('VM status container not found');
+            return;
+        }
 
         container.innerHTML = '';
 
-        const allVMs = [...data.vms, ...data.containers].slice(0, 10);
+        let allVMs = [];
+        
+        // 複数のデータソースからVMを収集
+        if (data.vms && Array.isArray(data.vms)) {
+            allVMs = allVMs.concat(data.vms);
+        }
+        if (data.containers && Array.isArray(data.containers)) {
+            allVMs = allVMs.concat(data.containers);
+        }
+        
+        // ノード内のVMリストも確認
+        if (data.nodes && Array.isArray(data.nodes)) {
+            data.nodes.forEach(node => {
+                if (node.vmlist && Array.isArray(node.vmlist)) {
+                    allVMs = allVMs.concat(node.vmlist);
+                }
+            });
+        }
 
+        // 重複を除去（VMIDベース）
+        const uniqueVMs = [];
+        const seenVMIds = new Set();
+        
         allVMs.forEach(vm => {
+            const vmid = vm.vmid || vm.id || vm.name;
+            if (vmid && !seenVMIds.has(vmid)) {
+                seenVMIds.add(vmid);
+                uniqueVMs.push(vm);
+            }
+        });
+
+        console.log(`Found ${uniqueVMs.length} unique VMs/Containers`);
+
+        if (uniqueVMs.length === 0) {
+            container.innerHTML = '<div class="vm-item">No VMs found</div>';
+            return;
+        }
+
+        // 最大10個まで表示
+        uniqueVMs.slice(0, 10).forEach(vm => {
             const vmItem = document.createElement('div');
             vmItem.className = 'vm-item';
             
-            const statusClass = vm.status === 'running' ? 'running' : 'stopped';
+            const status = vm.status || 'unknown';
+            const statusClass = status === 'running' ? 'running' : 'stopped';
+            const vmName = vm.name || vm.vmid || vm.id || 'Unknown';
+            const vmType = vm.type || (vm.template ? 'template' : 'vm');
             
             vmItem.innerHTML = `
-                <div class="vm-name">${vm.name || vm.vmid}</div>
-                <div class="vm-status-badge ${statusClass}">${vm.status}</div>
+                <div class="vm-info">
+                    <div class="vm-name">${vmName}</div>
+                    <div class="vm-type">${vmType.toUpperCase()}</div>
+                </div>
+                <div class="vm-status-badge ${statusClass}">${status}</div>
             `;
 
             container.appendChild(vmItem);
+        });
+    }
+
+    /**
+     * ストレージオーバービューを更新
+     */
+    updateStorageOverview(data) {
+        console.log('Updating Storage Overview with data:', data);
+        
+        if (!data || !data.storage) {
+            console.warn('No storage data available');
+            return;
+        }
+
+        const container = document.getElementById('storage-overview');
+        if (!container) {
+            console.warn('Storage overview container not found');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        data.storage.forEach(storage => {
+            if (storage.enabled !== false) {
+                const storageItem = document.createElement('div');
+                storageItem.className = 'storage-item';
+                
+                const usedGB = storage.used ? (storage.used / (1024 * 1024 * 1024)).toFixed(1) : '0';
+                const totalGB = storage.total ? (storage.total / (1024 * 1024 * 1024)).toFixed(1) : '0';
+                const percent = storage.total > 0 ? Math.round((storage.used / storage.total) * 100) : 0;
+                
+                storageItem.innerHTML = `
+                    <div class="storage-header">
+                        <div class="storage-name">${storage.storage || storage.node || 'Unknown'}</div>
+                        <div class="storage-type">${storage.type || 'Unknown'}</div>
+                    </div>
+                    <div class="storage-usage">
+                        <div class="usage-bar">
+                            <div class="usage-fill" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="usage-text">${usedGB} GB / ${totalGB} GB (${percent}%)</div>
+                    </div>
+                `;
+
+                container.appendChild(storageItem);
+            }
         });
     }
 
@@ -593,13 +686,88 @@ class ProxmoxViewController {
     }
 
     /**
+     * テストデータでビューを初期化（開発用）
+     */
+    initializeWithTestData() {
+        console.log('Initializing Proxmox view with test data...');
+        
+        const testData = {
+            nodes: [
+                {
+                    node: 'proxmox-01',
+                    status: 'online',
+                    cpu: 0.25,
+                    maxcpu: 8,
+                    cores: 8,
+                    mem: 8 * 1024 * 1024 * 1024, // 8GB in bytes
+                    maxmem: 32 * 1024 * 1024 * 1024, // 32GB in bytes
+                    uptime: 2592000, // 30 days
+                    vmlist: [
+                        { vmid: 100, name: 'WebServer', type: 'qemu', status: 'running' },
+                        { vmid: 101, name: 'Database', type: 'qemu', status: 'running' },
+                        { vmid: 102, name: 'TestVM', type: 'qemu', status: 'stopped' },
+                        { vmid: 200, name: 'Container-1', type: 'lxc', status: 'running' }
+                    ]
+                },
+                {
+                    node: 'proxmox-02',
+                    status: 'online',
+                    cpu: 0.15,
+                    maxcpu: 6,
+                    cores: 6,
+                    mem: 6 * 1024 * 1024 * 1024,
+                    maxmem: 24 * 1024 * 1024 * 1024,
+                    uptime: 1728000, // 20 days
+                    vmlist: [
+                        { vmid: 103, name: 'BackupServer', type: 'qemu', status: 'running' },
+                        { vmid: 201, name: 'Container-2', type: 'lxc', status: 'stopped' }
+                    ]
+                }
+            ],
+            storage: [
+                {
+                    storage: 'local-zfs',
+                    type: 'zfspool',
+                    total: 2 * 1024 * 1024 * 1024 * 1024, // 2TB
+                    used: 800 * 1024 * 1024 * 1024, // 800GB
+                    enabled: true
+                },
+                {
+                    storage: 'nfs-storage',
+                    type: 'nfs',
+                    total: 5 * 1024 * 1024 * 1024 * 1024, // 5TB
+                    used: 2.5 * 1024 * 1024 * 1024 * 1024, // 2.5TB
+                    enabled: true
+                }
+            ],
+            vms: [
+                { vmid: 100, name: 'WebServer', type: 'qemu', status: 'running' },
+                { vmid: 101, name: 'Database', type: 'qemu', status: 'running' },
+                { vmid: 102, name: 'TestVM', type: 'qemu', status: 'stopped' },
+                { vmid: 103, name: 'BackupServer', type: 'qemu', status: 'running' }
+            ],
+            containers: [
+                { vmid: 200, name: 'Container-1', type: 'lxc', status: 'running' },
+                { vmid: 201, name: 'Container-2', type: 'lxc', status: 'stopped' }
+            ]
+        };
+        
+        this.updateView(testData);
+    }
+
+    /**
      * 初期化メソッド
      */
     init() {
         console.log('ProxmoxViewController initialized');
-        
-        // イベントリスナーを設定
-        this.setupEventListeners();
+        // 実際のデータが利用できない場合はテストデータを使用
+        setTimeout(() => {
+            const data = this.dataModel ? this.dataModel.getProxmoxData() : null;
+            if (!data || Object.keys(data).length === 0) {
+                console.log('No real data available, using test data');
+                this.initializeWithTestData();
+            }
+        }, 1000);
     }
 
     /**
