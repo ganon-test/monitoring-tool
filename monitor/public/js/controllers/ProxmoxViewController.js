@@ -53,6 +53,10 @@ class ProxmoxViewController {
                 this.updateStorageOverview(responseData)
             ]);
 
+            // 詳細モード用コンテンツを更新
+            this.updateDetailedNodes(responseData.nodes);
+            this.updateDetailedVMs(responseData.vms || [], responseData.containers || []);
+
             // 履歴データを読み込み
             await this.loadHistoryData();
 
@@ -869,5 +873,48 @@ class ProxmoxViewController {
      */
     updateDisplay(data) {
         this.updateView(data);
+    }
+
+    /**
+     * 詳細ノード情報を表示
+     */
+    updateDetailedNodes(nodes) {
+        const container = document.getElementById('detailed-nodes-content');
+        if (!container) return;
+        container.innerHTML = '';
+        nodes.forEach(node => {
+            const div = document.createElement('div');
+            div.className = 'detail-node';
+            const cpu = (node.cpu * 100).toFixed(1);
+            const memPerc = node.memory && node.memory.percentage !== undefined
+                ? node.memory.percentage.toFixed(1)
+                : ((node.mem / node.maxmem) * 100).toFixed(1);
+            div.innerHTML = `
+                <h4>${node.node} <span class="status-dot ${node.status}"></span></h4>
+                <p>CPU Usage: ${cpu}%</p>
+                <p>Memory Usage: ${memPerc}%</p>
+                <p>Uptime: ${this.formatUptime(node.uptime)}</p>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    /**
+     * 詳細VM/コンテナ情報を表示
+     */
+    updateDetailedVMs(vms, containers) {
+        const vmContainer = document.getElementById('detailed-vms-content');
+        if (!vmContainer) return;
+        vmContainer.innerHTML = '';
+        const all = vms.concat(containers);
+        all.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'detail-vm';
+            div.innerHTML = `
+                <h4>${item.name} (${item.type.toUpperCase()})</h4>
+                <p>ID: ${item.vmid} - Status: ${item.status}</p>
+            `;
+            vmContainer.appendChild(div);
+        });
     }
 }
