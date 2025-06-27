@@ -107,8 +107,16 @@ class ProxmoxViewController {
                     <div class="node-status ${statusClass}"></div>
                 </div>
                 <div class="node-details">
-                    <div>CPU: ${cpuPercent}%</div>
-                    <div>Memory: ${memPercent}%</div>
+                    <div class="usage-section">
+                        <div class="usage-label">CPU</div>
+                        <div class="usage-bar"><div class="usage-fill" style="width:${cpuPercent}%"></div></div>
+                        <div class="usage-text">${cpuPercent}%</div>
+                    </div>
+                    <div class="usage-section">
+                        <div class="usage-label">Memory</div>
+                        <div class="usage-bar"><div class="usage-fill" style="width:${memPercent}%"></div></div>
+                        <div class="usage-text">${memPercent}%</div>
+                    </div>
                     <div>Uptime: ${this.formatUptime(node.uptime)}</div>
                     <div>Temperature: ${temp}°C</div>
                     <div>Power: ${power} W</div>
