@@ -1,0 +1,371 @@
+/**
+ * メインダッシュボードアプリケーション - MVCコーディネーター
+ */
+class DashboardApp {
+    constructor() {
+        this.currentView = 'nextcloud';
+        this.autoRefreshInterval = null;
+        this.autoRefreshDelay = 10000; // 10秒
+        
+        // 各コンポーネントを初期化
+        this.dataModel = new DataModel();
+        this.chartManager = new ChartManager();
+        this.socketManager = new SocketManager();
+        this.nextcloudController = new NextcloudViewController(this.chartManager, this.dataModel);
+        this.proxmoxController = new ProxmoxViewController(this.chartManager, this.dataModel);
+    }
+
+    /**
+     * アプリケーションを初期化
+     */
+    async init() {
+        try {
+            console.log('Initializing Dashboard Application...');
+            
+            // DOMの準備完了まで待機
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.initializeComponents());
+            } else {
+                await this.initializeComponents();
+            }
+            
+        } catch (error) {
+            console.error('Error initializing dashboard:', error);
+            this.showError('Failed to initialize dashboard: ' + error.message);
+        }
+    }
+
+    /**
+     * コンポーネントを初期化
+     */
+    async initializeComponents() {
+        try {
+            console.log('Initializing components...');
+            
+            // データモデルを初期化
+            if (this.dataModel && typeof this.dataModel.init === 'function') {
+                await this.dataModel.init();
+            }
+            
+            // チャート管理を初期化
+            if (this.chartManager) {
+                if (typeof this.chartManager.init === 'function') {
+                    this.chartManager.init();
+                } else if (typeof this.chartManager.initializeAllCharts === 'function') {
+                    this.chartManager.initializeAllCharts();
+                }
+            }
+            
+            // WebSocket管理を初期化
+            if (this.socketManager && typeof this.socketManager.init === 'function') {
+                this.socketManager.init(this.onDataUpdate.bind(this));
+            }
+            
+            // ビューコントローラーを初期化
+            if (this.nextcloudController && typeof this.nextcloudController.init === 'function') {
+                this.nextcloudController.init();
+            }
+            if (this.proxmoxController && typeof this.proxmoxController.init === 'function') {
+                this.proxmoxController.init();
+            }
+            
+            // イベントリスナーをセットアップ
+            this.setupEventListeners();
+            
+            // 初期ビューを設定
+            this.switchView('nextcloud');
+            
+            // 初期データ取得
+            await this.loadInitialData();
+            
+            console.log('Dashboard Application initialized successfully');
+            
+        } catch (error) {
+            console.error('Error initializing components:', error);
+            this.showError('Failed to initialize components: ' + error.message);
+        }
+    }
+
+    /**
+     * イベントリスナーをセットアップ
+     */
+    setupEventListeners() {
+        // ビュー切り替えボタン
+        const nextcloudToggle = document.getElementById('nextcloud-toggle');
+        const proxmoxToggle = document.getElementById('proxmox-toggle');
+        
+        if (nextcloudToggle) {
+            nextcloudToggle.addEventListener('click', () => this.switchView('nextcloud'));
+        }
+        if (proxmoxToggle) {
+            proxmoxToggle.addEventListener('click', () => this.switchView('proxmox'));
+        }
+
+        // ウィンドウリサイズハンドラー
+        window.addEventListener('resize', () => {
+            setTimeout(() => this.resizeCharts(), 100);
+        });
+
+        // 詳細モード切り替えがあれば
+        const detailButtons = document.querySelectorAll('.detail-toggle');
+        detailButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const service = e.target.dataset.service;
+                this.toggleDetailMode(service);
+            });
+        });
+    }
+
+    /**
+     * ビューを切り替え
+     */
+    switchView(view) {
+        this.currentView = view;
+        
+        // セクションを取得
+        const nextcloudSection = document.querySelector('.nextcloud-section');
+        const proxmoxSection = document.querySelector('.proxmox-section');
+        
+        // トグルボタンを取得
+        const nextcloudToggle = document.getElementById('nextcloud-toggle');
+        const proxmoxToggle = document.getElementById('proxmox-toggle');
+        
+        if (view === 'nextcloud') {
+            // Nextcloudを表示、Proxmoxを非表示
+            if (nextcloudSection) nextcloudSection.style.display = 'block';
+            if (proxmoxSection) proxmoxSection.style.display = 'none';
+            
+            // ボタンの状態を更新
+            if (nextcloudToggle) nextcloudToggle.classList.add('active');
+            if (proxmoxToggle) proxmoxToggle.classList.remove('active');
+            
+            // Nextcloudデータを更新
+            if (this.nextcloudController && typeof this.nextcloudController.updateDisplay === 'function') {
+                const data = this.dataModel.getNextcloudData ? this.dataModel.getNextcloudData() : null;
+                if (data) this.nextcloudController.updateDisplay(data);
+            }
+            
+        } else if (view === 'proxmox') {
+            // Proxmoxを表示、Nextcloudを非表示
+            if (nextcloudSection) nextcloudSection.style.display = 'none';
+            if (proxmoxSection) proxmoxSection.style.display = 'block';
+            
+            // ボタンの状態を更新
+            if (nextcloudToggle) nextcloudToggle.classList.remove('active');
+            if (proxmoxToggle) proxmoxToggle.classList.add('active');
+            
+            // Proxmoxデータを更新
+            if (this.proxmoxController && typeof this.proxmoxController.updateDisplay === 'function') {
+                const data = this.dataModel.getProxmoxData ? this.dataModel.getProxmoxData() : null;
+                if (data) this.proxmoxController.updateDisplay(data);
+            }
+        }
+        
+        // チャートのリサイズ
+        setTimeout(() => {
+            this.resizeCharts();
+        }, 100);
+    }
+
+    /**
+     * 初期データを読み込み
+     */
+    async loadInitialData() {
+        try {
+            console.log('Loading initial data...');
+            
+            // 各サービスのデータを並行取得
+            const promises = [];
+            
+            if (this.dataModel.fetchNextcloudData) {
+                promises.push(this.dataModel.fetchNextcloudData().catch(err => {
+                    console.error('Failed to fetch Nextcloud data:', err);
+                    return { error: err.message };
+                }));
+            }
+            if (this.dataModel.fetchProxmoxData) {
+                promises.push(this.dataModel.fetchProxmoxData().catch(err => {
+                    console.error('Failed to fetch Proxmox data:', err);
+                    return { error: err.message };
+                }));
+            }
+            
+            if (promises.length > 0) {
+                await Promise.all(promises);
+                
+                // データを更新
+                this.updateAllDisplays();
+            }
+            
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+            this.showError('Failed to load initial data: ' + error.message);
+        }
+    }
+
+    /**
+     * WebSocketデータ更新時のコールバック
+     */
+    onDataUpdate(data) {
+        try {
+            console.log('Received data update:', data);
+            
+            // データモデルを更新
+            if (data.nextcloud && this.dataModel.updateNextcloudData) {
+                this.dataModel.updateNextcloudData(data.nextcloud);
+            }
+            if (data.proxmox && this.dataModel.updateProxmoxData) {
+                this.dataModel.updateProxmoxData(data.proxmox);
+            }
+            
+            // 表示を更新
+            this.updateAllDisplays();
+            
+            // 最終更新時刻を更新
+            this.updateLastUpdateTime();
+            
+        } catch (error) {
+            console.error('Error updating data:', error);
+        }
+    }
+
+    /**
+     * 全ての表示を更新
+     */
+    updateAllDisplays() {
+        // ステータスインジケーターを更新
+        this.updateStatusIndicators();
+        
+        // 現在のビューに応じてコントローラーを更新
+        if (this.currentView === 'nextcloud' && this.nextcloudController) {
+            const data = this.dataModel.getNextcloudData ? this.dataModel.getNextcloudData() : null;
+            if (data && this.nextcloudController.updateDisplay) {
+                this.nextcloudController.updateDisplay(data);
+            }
+        } else if (this.currentView === 'proxmox' && this.proxmoxController) {
+            const data = this.dataModel.getProxmoxData ? this.dataModel.getProxmoxData() : null;
+            if (data && this.proxmoxController.updateDisplay) {
+                this.proxmoxController.updateDisplay(data);
+            }
+        }
+    }
+
+    /**
+     * ステータスインジケーターを更新
+     */
+    updateStatusIndicators() {
+        const nextcloudData = this.dataModel.getNextcloudData ? this.dataModel.getNextcloudData() : null;
+        const proxmoxData = this.dataModel.getProxmoxData ? this.dataModel.getProxmoxData() : null;
+        
+        // Nextcloudステータス
+        const nextcloudStatus = document.querySelector('#nextcloud-status .status-dot');
+        if (nextcloudStatus) {
+            nextcloudStatus.className = 'status-dot ' + 
+                (nextcloudData && !nextcloudData.error ? 'online' : 'offline');
+        }
+        
+        // Proxmoxステータス
+        const proxmoxStatus = document.querySelector('#proxmox-status .status-dot');
+        if (proxmoxStatus) {
+            proxmoxStatus.className = 'status-dot ' + 
+                (proxmoxData && !proxmoxData.error ? 'online' : 'offline');
+        }
+    }
+
+    /**
+     * 最終更新時刻を更新
+     */
+    updateLastUpdateTime() {
+        const lastUpdateElement = document.getElementById('last-update-time');
+        if (lastUpdateElement) {
+            lastUpdateElement.textContent = new Date().toLocaleTimeString('ja-JP');
+        }
+    }
+
+    /**
+     * チャートをリサイズ
+     */
+    resizeCharts() {
+        if (this.chartManager && this.chartManager.resizeAllCharts) {
+            this.chartManager.resizeAllCharts();
+        }
+    }
+
+    /**
+     * 詳細モードを切り替え
+     */
+    toggleDetailMode(service) {
+        if (service === 'nextcloud' && this.nextcloudController && this.nextcloudController.toggleDetailMode) {
+            this.nextcloudController.toggleDetailMode();
+        } else if (service === 'proxmox' && this.proxmoxController && this.proxmoxController.toggleDetailMode) {
+            this.proxmoxController.toggleDetailMode();
+        }
+    }
+
+    /**
+     * エラーメッセージを表示
+     */
+    showError(message) {
+        console.error('Dashboard error:', message);
+        
+        // エラー表示用の要素があれば更新
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            
+            // 5秒後に非表示
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    /**
+     * 成功メッセージを表示
+     */
+    showSuccess(message) {
+        console.log('Dashboard success:', message);
+        
+        // 成功表示用の要素があれば更新
+        const successElement = document.getElementById('success-message');
+        if (successElement) {
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            
+            // 3秒後に非表示
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    /**
+     * アプリケーションを破棄
+     */
+    destroy() {
+        // WebSocket接続を切断
+        if (this.socketManager && this.socketManager.disconnect) {
+            this.socketManager.disconnect();
+        }
+        
+        // チャートを破棄
+        if (this.chartManager && this.chartManager.destroyAllCharts) {
+            this.chartManager.destroyAllCharts();
+        }
+        
+        // 自動更新を停止
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+        }
+        
+        console.log('Dashboard Application destroyed');
+    }
+}
+
+// グローバル関数（後方互換性のため）
+function switchView(view) {
+    if (window.dashboardApp) {
+        window.dashboardApp.switchView(view);
+    }
+}
