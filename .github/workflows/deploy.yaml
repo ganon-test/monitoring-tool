@@ -20,7 +20,7 @@ jobs:
           script: |
             # 必要ならクローン
             if [ ! -d ~/MONITORING-API ]; then
-            git clone git@github.com:YOUR_USER/YOUR_REPO.git ~/MONITORING-API
+            git clone git@github.com:ganon-test/monitoring-tool.git ~/MONITORING-API
             fi
 
             cd ~/MONITORING-API
