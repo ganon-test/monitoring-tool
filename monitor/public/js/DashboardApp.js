@@ -299,7 +299,7 @@ class DashboardApp {
     }
 
     /**
-     * チャートの異常成長を防ぐ
+     * チャートの異常成長を防ぐ（強化版）
      */
     preventChartOvergrowth() {
         // 全キャンバス要素をチェック
@@ -307,37 +307,59 @@ class DashboardApp {
         canvases.forEach(canvas => {
             const rect = canvas.getBoundingClientRect();
             
-            // 異常に大きいキャンバスをリセット
-            if (rect.width > 2000 || rect.height > 2000) {
-                console.warn(`Canvas ${canvas.id} is too large: ${rect.width}x${rect.height}, resetting...`);
+            // より厳しい制限（500px超過で即リセット）
+            if (rect.width > 500 || rect.height > 400) {
+                console.warn(`Canvas ${canvas.id} is too large: ${rect.width}x${rect.height}, emergency reset...`);
                 
-                // スタイルをリセット
-                canvas.style.width = '';
-                canvas.style.height = '';
-                canvas.style.maxWidth = '100%';
-                canvas.style.maxHeight = '100%';
+                // 強制的にサイズをリセット
+                canvas.style.width = '300px !important';
+                canvas.style.height = '250px !important';
+                canvas.style.maxWidth = '300px !important';
+                canvas.style.maxHeight = '250px !important';
                 
-                // 親コンテナのサイズに合わせる
-                const parent = canvas.parentElement;
-                if (parent) {
-                    const parentRect = parent.getBoundingClientRect();
-                    if (parentRect.width > 0 && parentRect.height > 0) {
-                        canvas.style.width = Math.min(parentRect.width, 800) + 'px';
-                        canvas.style.height = Math.min(parentRect.height, 600) + 'px';
-                    }
-                }
+                // キャンバス自体のサイズも制限
+                canvas.width = 300;
+                canvas.height = 250;
                 
-                // Chart.jsインスタンスがある場合はリサイズ
+                // Chart.jsインスタンスを強制リサイズ
                 if (this.chartManager && this.chartManager.charts) {
                     this.chartManager.charts.forEach(chart => {
                         if (chart.canvas === canvas && typeof chart.resize === 'function') {
                             try {
-                                chart.resize();
+                                chart.resize(300, 250);
                             } catch (error) {
-                                console.error('Error resizing chart:', error);
+                                console.error('Error force resizing chart:', error);
+                                // 最後の手段：チャートを破棄して再作成
+                                this.chartManager.charts.forEach((chartInstance, name) => {
+                                    if (chartInstance.canvas === canvas) {
+                                        console.warn(`Destroying and recreating chart: ${name}`);
+                                        this.chartManager.destroyChart(name);
+                                    }
+                                });
                             }
                         }
                     });
+                }
+            }
+            
+            // さらに小さい制限も設定
+            if (rect.width > 300 || rect.height > 250) {
+                canvas.style.maxWidth = '300px';
+                canvas.style.maxHeight = '250px';
+            }
+        });
+        
+        // 問題のあるチャートを特定して個別対応
+        const problematicCharts = ['storage-donut-chart', 'memory-gauge', 'cluster-memory-gauge'];
+        problematicCharts.forEach(chartId => {
+            const canvas = document.getElementById(chartId);
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                if (rect.width > 300 || rect.height > 300) {
+                    canvas.style.width = '250px !important';
+                    canvas.style.height = '250px !important';
+                    canvas.style.maxWidth = '250px !important';
+                    canvas.style.maxHeight = '250px !important';
                 }
             }
         });

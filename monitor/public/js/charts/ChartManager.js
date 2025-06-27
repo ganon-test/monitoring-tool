@@ -35,29 +35,31 @@ class ChartManager {
         if (!config.options) config.options = {};
         
         config.options.onResize = function(chart, size) {
-            // 異常なサイズの場合は制限
-            if (size.width > 2000 || size.height > 2000) {
-                console.warn(`Chart ${chartName} size too large, limiting: ${size.width}x${size.height}`);
-                chart.canvas.style.width = Math.min(size.width, 1200) + 'px';
-                chart.canvas.style.height = Math.min(size.height, 800) + 'px';
-                chart.resize();
-                return;
-            }
+            // 無限ループを防ぐためのフラグ
+            if (chart._isResizing) return;
+            chart._isResizing = true;
             
-            // 小さすぎる場合は最小サイズを確保
-            if (size.width < 100 || size.height < 100) {
+            setTimeout(() => {
+                chart._isResizing = false;
+            }, 100);
+            
+            // 異常なサイズの場合は制限
+            if (size.width > 1000 || size.height > 1000) {
+                console.warn(`Chart ${chartName} size too large, limiting: ${size.width}x${size.height}`);
                 const parent = chart.canvas.parentElement;
                 if (parent) {
                     const parentRect = parent.getBoundingClientRect();
-                    chart.canvas.style.width = Math.max(parentRect.width || 200, 200) + 'px';
-                    chart.canvas.style.height = Math.max(parentRect.height || 150, 150) + 'px';
-                    chart.resize();
-                    return;
+                    const maxWidth = Math.min(parentRect.width || 400, 400);
+                    const maxHeight = Math.min(parentRect.height || 300, 300);
+                    
+                    chart.canvas.style.width = maxWidth + 'px';
+                    chart.canvas.style.height = maxHeight + 'px';
                 }
+                return; // resizeを呼ばない
             }
             
             // 元のonResizeコールバックがあれば実行
-            if (originalOnResize) {
+            if (originalOnResize && !chart._isResizing) {
                 originalOnResize.call(this, chart, size);
             }
         };
@@ -131,6 +133,13 @@ class ChartManager {
                 },
                 layout: {
                     padding: 0
+                },
+                // 強制的なサイズ制限
+                onResize: function(chart, size) {
+                    if (size.width > 400 || size.height > 400) {
+                        chart.canvas.style.maxWidth = '300px';
+                        chart.canvas.style.maxHeight = '300px';
+                    }
                 }
             }
         };
@@ -175,6 +184,13 @@ class ChartManager {
                     line: {
                         tension: 0.4
                     }
+                },
+                // 強制的なサイズ制限
+                onResize: function(chart, size) {
+                    if (size.width > 600 || size.height > 300) {
+                        chart.canvas.style.maxWidth = '500px';
+                        chart.canvas.style.maxHeight = '250px';
+                    }
                 }
             }
         };
@@ -207,6 +223,13 @@ class ChartManager {
                 },
                 layout: {
                     padding: 0
+                },
+                // 強制的なサイズ制限
+                onResize: function(chart, size) {
+                    if (size.width > 400 || size.height > 400) {
+                        chart.canvas.style.maxWidth = '300px';
+                        chart.canvas.style.maxHeight = '300px';
+                    }
                 }
             }
         };

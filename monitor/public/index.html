@@ -11,40 +11,54 @@
     
     <!-- Canvas size protection and optimization -->
     <style>
-        /* Base canvas styles */
+        /* Emergency size restrictions */
         canvas, .chart-canvas {
-            max-width: 100% !important;
-            max-height: 100% !important;
+            max-width: 500px !important;
+            max-height: 400px !important;
             width: 100% !important;
             height: 100% !important;
         }
         
-        /* Gauge containers */
+        /* Specific restrictions for problematic charts */
+        #storage-donut-chart,
+        #memory-gauge,
+        #cluster-cpu-gauge,
+        #cluster-memory-gauge,
+        #cluster-storage-gauge {
+            max-width: 300px !important;
+            max-height: 300px !important;
+        }
+        
+        /* Gauge containers with strict limits */
         .gauge-container {
             position: relative;
             width: 100%;
-            height: 280px;
-            min-height: 250px;
+            height: 280px !important;
+            max-height: 280px !important;
+            min-height: 200px;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
         
         .gauge-container canvas {
             width: 100% !important;
             height: 100% !important;
-            max-width: 280px !important;
-            max-height: 280px !important;
+            max-width: 260px !important;
+            max-height: 260px !important;
         }
         
-        /* Chart containers */
+        /* Chart containers with strict limits */
         .chart-container {
             position: relative;
             width: 100%;
-            height: 300px;
-            min-height: 250px;
+            height: 250px !important;
+            max-height: 250px !important;
+            min-height: 200px;
             padding: 10px;
             box-sizing: border-box;
+            overflow: hidden;
         }
         
         .chart-container canvas {
@@ -54,86 +68,47 @@
             max-height: 100% !important;
         }
         
-        /* Metric card optimizations */
+        /* Metric card strict restrictions */
         .metric-card {
-            min-height: 300px;
+            min-height: 280px !important;
+            max-height: 350px !important;
             position: relative;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         
         .metric-card .chart-container,
         .metric-card .gauge-container {
             flex: 1;
-            min-height: 200px;
+            max-height: 280px !important;
         }
         
         .metric-card canvas {
             width: 100% !important;
             height: 100% !important;
+            max-width: 300px !important;
+            max-height: 250px !important;
         }
         
-        /* History charts get more space */
-        .history-chart {
-            height: 400px;
-            min-height: 350px;
-        }
-        
-        .history-chart canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
-        
-        /* Timeline charts */
-        .timeline-chart {
-            height: 250px;
-            min-height: 200px;
-        }
-        
-        .timeline-chart canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
-        
-        /* Grid layout optimization */
+        /* Force container constraints */
         .main-grid {
             display: grid;
             gap: 20px;
             width: 100%;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            max-width: 100vw;
+            overflow-x: hidden;
         }
         
-        /* Gauge label positioning */
-        .gauge-label {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            pointer-events: none;
+        /* Absolutely prevent any canvas from growing beyond viewport */
+        * {
+            max-width: 100vw !important;
         }
         
-        /* Chart center label positioning */
-        .chart-center-label {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            pointer-events: none;
-        }
-        
-        /* Responsive breakpoints */
-        @media (max-width: 768px) {
-            .gauge-container,
-            .chart-container {
-                height: 250px;
-                min-height: 200px;
-            }
-            
-            .metric-card {
-                min-height: 280px;
-            }
+        canvas {
+            max-width: min(500px, 90vw) !important;
+            max-height: min(400px, 70vh) !important;
         }
     </style>
 </head>

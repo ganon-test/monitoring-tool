@@ -79,6 +79,54 @@ class MonitoringDashboard {
     updateLastUpdateTime() { /* 委譲済み */ }
 }
 
+// 緊急チャートリセット関数
+function emergencyChartReset() {
+    console.log('Emergency chart reset initiated...');
+    
+    // すべてのキャンバスを強制リセット
+    const canvases = document.querySelectorAll('canvas');
+    canvases.forEach((canvas, index) => {
+        console.log(`Resetting canvas ${index}: ${canvas.id}`);
+        
+        // 強制的にサイズを制限
+        canvas.style.width = '300px !important';
+        canvas.style.height = '250px !important';
+        canvas.style.maxWidth = '300px !important';
+        canvas.style.maxHeight = '250px !important';
+        canvas.width = 300;
+        canvas.height = 250;
+    });
+    
+    // ChartManagerのチャートをすべて破棄して再作成
+    if (window.dashboardApp && window.dashboardApp.chartManager) {
+        console.log('Destroying all charts...');
+        window.dashboardApp.chartManager.destroyAllCharts();
+        
+        setTimeout(() => {
+            console.log('Recreating charts...');
+            window.dashboardApp.chartManager.initializeAllCharts();
+        }, 500);
+    }
+}
+
+// ページが重くなった時の緊急停止
+function emergencyStop() {
+    console.log('Emergency stop activated...');
+    
+    // すべてのインターバルを停止
+    for (let i = 1; i < 99999; i++) {
+        clearInterval(i);
+        clearTimeout(i);
+    }
+    
+    // チャートリセット
+    emergencyChartReset();
+}
+
+// コンソールで実行可能にする
+window.emergencyChartReset = emergencyChartReset;
+window.emergencyStop = emergencyStop;
+
 /*
 === ファイルサイズ大幅削減完了 ===
 
