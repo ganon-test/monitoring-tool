@@ -26,7 +26,7 @@ class DashboardApp {
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', () => this.initializeComponents());
             } else {
-                this.initializeComponents();
+                await this.initializeComponents();
             }
             
         } catch (error) {
@@ -41,17 +41,29 @@ class DashboardApp {
     async initializeComponents() {
         try {
             // データモデルを初期化
-            await this.dataModel.init();
+            if (this.dataModel && this.dataModel.init) {
+                await this.dataModel.init();
+            }
             
             // チャート管理を初期化
-            this.chartManager.init();
+            if (this.chartManager && this.chartManager.init) {
+                this.chartManager.init();
+            } else if (this.chartManager && this.chartManager.initializeAllCharts) {
+                this.chartManager.initializeAllCharts();
+            }
             
             // WebSocket管理を初期化
-            this.socketManager.init(this.onDataUpdate.bind(this));
+            if (this.socketManager && this.socketManager.init) {
+                this.socketManager.init(this.onDataUpdate.bind(this));
+            }
             
             // ビューコントローラーを初期化
-            this.nextcloudController.init();
-            this.proxmoxController.init();
+            if (this.nextcloudController && this.nextcloudController.init) {
+                this.nextcloudController.init();
+            }
+            if (this.proxmoxController && this.proxmoxController.init) {
+                this.proxmoxController.init();
+            }
             
             // イベントリスナーをセットアップ
             this.setupEventListeners();

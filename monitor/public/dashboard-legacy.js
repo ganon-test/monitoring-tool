@@ -1,8 +1,8 @@
-// Legacy Dashboard JavaScript - Lightweight compatibility layer
-// This file provides backward compatibility while delegating to the new MVC structure
+// Legacy Dashboard JavaScript - Being migrated to MVC structure
+// This file is being gradually replaced by the new MVC architecture
 
 /**
- * 旧MonitoringDashboardクラス - 軽量互換レイヤー
+ * 旧MonitoringDashboardクラス - MVCに移行中
  * 新しいアプリケーションはDashboardAppクラスを使用してください
  * @deprecated Use DashboardApp instead
  */
@@ -20,19 +20,14 @@ class MonitoringDashboard {
         this.detailedMode = false;
         this.currentView = 'nextcloud';
         
-        // MVCアプリに委譲
-        this.initializeMVCApp();
-    }
-
-    async initializeMVCApp() {
-        // DashboardAppが利用可能になるまで待機
-        if (typeof DashboardApp !== 'undefined' && !window.dashboardApp) {
+        // MVCアプリに移行
+        if (!window.dashboardApp) {
             window.dashboardApp = new DashboardApp();
-            await window.dashboardApp.init();
+            window.dashboardApp.init();
         }
     }
 
-    // 後方互換性のためのメソッド（全てMVCに委譲）
+    // 後方互換性のためのメソッド
     switchView(view) {
         if (window.dashboardApp) {
             window.dashboardApp.switchView(view);
@@ -66,55 +61,98 @@ class MonitoringDashboard {
     // 基本的なヘルパーメソッド
     formatBytes(bytes) {
         if (bytes === 0) return '0 B';
+        
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     formatNumber(num) {
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(1) + 'M';
+        } else if (num >= 1000) {
+            return (num / 1000).toFixed(1) + 'K';
+        }
         return num.toString();
     }
 
     formatUptime(seconds) {
         if (!seconds) return '-';
+        
         const days = Math.floor(seconds / 86400);
         const hours = Math.floor((seconds % 86400) / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
+        
         return `${days}d ${hours}h ${minutes}m`;
     }
 
     updateElement(elementId, value) {
         const element = document.getElementById(elementId);
-        if (element) element.textContent = value;
+        if (element) {
+            element.textContent = value;
+        }
     }
 
     showError(message) {
         console.error('Dashboard error:', message);
     }
 
-    // ダミーメソッド（互換性のため）
-    setupSocketListeners() { /* 委譲済み */ }
-    setupEventListeners() { /* 委譲済み */ }
-    updateConnectionStatus() { /* 委譲済み */ }
-    updateLastUpdateTime() { /* 委譲済み */ }
+    // Socket関連のダミーメソッド（互換性のため）
+    setupSocketListeners() {
+        console.log('Socket setup delegated to SocketManager');
+    }
+
+    setupEventListeners() {
+        console.log('Event setup delegated to DashboardApp');
+    }
+
+    updateConnectionStatus() {
+        console.log('Connection status delegated to DashboardApp');
+    }
+
+    updateLastUpdateTime() {
+        console.log('Last update time delegated to DashboardApp');
+    }
 }
 
 /*
-=== ファイルサイズ大幅削減完了 ===
+=== MVC移行完了 ===
 
-旧dashboard.js: 2063行 → 新dashboard.js: 約100行
-削減率: 95%以上
+以下の巨大なコードは、MVCパターンに従って適切なファイルに移行されました：
 
-巨大なコードは以下のMVCファイルに適切に分離：
-- ChartManager.js: チャート管理
-- DataModel.js: データ管理  
-- NextcloudViewController.js: Nextcloud表示
-- ProxmoxViewController.js: Proxmox表示
-- SocketManager.js: WebSocket管理
-- DashboardApp.js: メイン調整
+📊 チャート関連機能 (2000+ lines) → js/charts/ChartManager.js
+- initializeNextcloudCharts()
+- initializeProxmoxCharts()
+- 全てのChart.js設定とインスタンス管理
+
+💾 データ管理機能 → js/models/DataModel.js
+- API呼び出し
+- データキャッシュ
+- データ変換処理
+
+🎮 Nextcloud表示制御 → js/controllers/NextcloudViewController.js
+- updateNextcloudData()
+- Nextcloud固有の表示更新
+- チャート更新ロジック
+
+🖥️ Proxmox表示制御 → js/controllers/ProxmoxViewController.js
+- updateProxmoxData()
+- Proxmox固有の表示更新
+- ノード・VM管理
+
+🔌 WebSocket管理 → js/managers/SocketManager.js
+- Socket.IOイベント処理
+- リアルタイム更新
+
+🏗️ メインアプリケーション → js/DashboardApp.js
+- 全体の調整
+- ビュー切り替え
+- イベント管理
+
+これにより、dashboard.jsは約100行に削減され、
+各機能は責任に応じて適切に分離されました。
 
 保守性・可読性・拡張性が大幅に向上しています。
 */

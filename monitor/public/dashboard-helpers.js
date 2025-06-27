@@ -1,4 +1,4 @@
-// Dashboard Helper Functions
+// Dashboard Helper Functions - Updated for MVC structure
 
 // Global helper functions
 function updateElement(elementId, value) {
@@ -8,73 +8,68 @@ function updateElement(elementId, value) {
     }
 }
 
-// Global functions for view switching
+// Global functions for view switching (delegates to DashboardApp)
 function switchView(view) {
-    if (window.dashboard) {
-        window.dashboard.switchView(view);
+    if (window.dashboardApp) {
+        window.dashboardApp.switchView(view);
     }
 }
 
 function refreshNextcloud() {
-    if (window.dashboard) {
-        window.dashboard.refreshNextcloud();
+    if (window.dashboardApp) {
+        window.dashboardApp.dataModel.fetchNextcloudData();
     }
 }
 
 function refreshProxmox() {
-    if (window.dashboard) {
-        window.dashboard.refreshProxmox();
+    if (window.dashboardApp) {
+        window.dashboardApp.dataModel.fetchProxmoxData();
     }
 }
 
 function toggleDetailedView() {
-    if (window.dashboard) {
-        window.dashboard.toggleDetailedView();
+    if (window.dashboardApp) {
+        window.dashboardApp.toggleDetailMode();
     }
 }
 
-// Initialize dashboard when page loads
+// Initialize dashboard when page loads - Updated for MVC
 document.addEventListener('DOMContentLoaded', function() {
-    window.dashboard = new MonitoringDashboard();
+    console.log('DOM loaded, initializing MVC Dashboard...');
     
-    // Add missing methods to the dashboard
-    window.dashboard.updateElement = function(elementId, value) {
-        updateElement(elementId, value);
-    };
-
-    window.dashboard.refreshNextcloud = function() {
-        console.log('Refreshing Nextcloud data...');
-        fetch('/api/nextcloud')
-            .then(response => response.json())
-            .then(data => this.updateNextcloudData(data))
-            .catch(error => console.error('Failed to refresh Nextcloud:', error));
-    };
-
-    window.dashboard.refreshProxmox = function() {
-        console.log('Refreshing Proxmox data...');
-        fetch('/api/proxmox')
-            .then(response => response.json())
-            .then(data => this.updateProxmoxData(data))
-            .catch(error => console.error('Failed to refresh Proxmox:', error));
-    };
-
-    window.dashboard.toggleDetailedView = function() {
-        this.detailedMode = !this.detailedMode;
-        
-        const detailedSections = document.querySelectorAll('.detailed-section');
-        const toggleText = document.getElementById('detail-toggle-text');
-        
-        detailedSections.forEach(section => {
-            section.style.display = this.detailedMode ? 'block' : 'none';
-        });
-        
-        if (toggleText) {
-            toggleText.textContent = this.detailedMode ? 'Hide Details' : 'Show Details';
-        }
-        
-        // Resize charts after toggle
-        setTimeout(() => {
-            this.resizeCharts();
-        }, 100);
-    };
+    // 新しいMVCアプリケーションを初期化
+    if (typeof DashboardApp !== 'undefined') {
+        window.dashboardApp = new DashboardApp();
+        window.dashboardApp.init();
+    } else {
+        console.error('DashboardApp class not found. Make sure all MVC files are loaded.');
+    }
+    
+    // 後方互換性のために旧クラスも作成
+    if (typeof MonitoringDashboard !== 'undefined') {
+        window.dashboard = new MonitoringDashboard();
+    }
 });
+
+// Utility functions
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+function formatUptime(seconds) {
+    if (!seconds) return '-';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}d ${hours}h ${minutes}m`;
+}
