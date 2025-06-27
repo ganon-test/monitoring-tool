@@ -12,7 +12,53 @@ class ChartManager {
      */
     init() {
         console.log('ChartManager initialized');
+        // 既存のチャートをすべて破棄してから初期化
+        this.destroyAllCharts();
         this.initializeAllCharts();
+    }
+
+    /**
+     * 安全なチャート作成ヘルパー
+     */
+    createChartSafely(canvasId, chartName, config) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.warn(`Canvas element '${canvasId}' not found`);
+            return null;
+        }
+
+        // 既存のチャートがある場合は破棄
+        this.destroyChart(chartName);
+
+        // キャンバスサイズ制限を追加
+        const originalOnResize = config.options?.onResize;
+        if (!config.options) config.options = {};
+        
+        config.options.onResize = function(chart, size) {
+            // 異常なサイズの場合は制限
+            if (size.width > 2000 || size.height > 2000) {
+                console.warn(`Chart ${chartName} size too large, limiting: ${size.width}x${size.height}`);
+                chart.canvas.style.width = Math.min(size.width, 800) + 'px';
+                chart.canvas.style.height = Math.min(size.height, 600) + 'px';
+                chart.resize();
+                return;
+            }
+            
+            // 元のonResizeコールバックがあれば実行
+            if (originalOnResize) {
+                originalOnResize.call(this, chart, size);
+            }
+        };
+
+        try {
+            const chart = new Chart(ctx, config);
+            this.charts.set(chartName, chart);
+            this.chartConfigs.set(chartName, config);
+            return chart;
+        } catch (error) {
+            console.error(`Failed to create chart '${chartName}':`, error);
+            return null;
+        }
     }
 
     /**
@@ -53,9 +99,6 @@ class ChartManager {
      * メモリゲージチャート作成
      */
     createMemoryGauge() {
-        const ctx = document.getElementById('memory-gauge');
-        if (!ctx) return;
-
         const config = {
             type: 'doughnut',
             data: {
@@ -76,17 +119,13 @@ class ChartManager {
             }
         };
 
-        this.charts.set('memoryGauge', new Chart(ctx, config));
-        this.chartConfigs.set('memoryGauge', config);
+        this.createChartSafely('memory-gauge', 'memoryGauge', config);
     }
 
     /**
      * CPU負荷チャート作成
      */
     createCpuLoadChart() {
-        const ctx = document.getElementById('cpu-load-chart');
-        if (!ctx) return;
-
         const config = {
             type: 'line',
             data: {
@@ -115,7 +154,7 @@ class ChartManager {
             }
         };
 
-        this.charts.set('cpuLoad', new Chart(ctx, config));
+        this.createChartSafely('cpu-load-chart', 'cpuLoad', config);
         this.chartConfigs.set('cpuLoad', config);
     }
 
@@ -123,9 +162,6 @@ class ChartManager {
      * ストレージドーナツチャート作成
      */
     createStorageDonutChart() {
-        const ctx = document.getElementById('storage-donut-chart');
-        if (!ctx) return;
-
         const config = {
             type: 'doughnut',
             data: {
@@ -146,8 +182,7 @@ class ChartManager {
             }
         };
 
-        this.charts.set('storageDonut', new Chart(ctx, config));
-        this.chartConfigs.set('storageDonut', config);
+        this.createChartSafely('storage-donut-chart', 'storageDonut', config);
     }
 
     /**
@@ -643,9 +678,25 @@ class ChartManager {
      * 全チャートをリサイズ
      */
     resizeAllCharts() {
-        this.charts.forEach(chart => {
+        this.charts.forEach((chart, name) => {
             if (chart && typeof chart.resize === 'function') {
-                chart.resize();
+                try {
+                    // キャンバスのサイズをチェック
+                    const canvas = chart.canvas;
+                    if (canvas) {
+                        const rect = canvas.getBoundingClientRect();
+                        if (rect.width > 2000 || rect.height > 2000) {
+                            console.warn(`Chart ${name} has abnormal size: ${rect.width}x${rect.height}, resetting...`);
+                            canvas.style.width = '100%';
+                            canvas.style.height = '100%';
+                            canvas.style.maxWidth = '800px';
+                            canvas.style.maxHeight = '600px';
+                        }
+                    }
+                    chart.resize();
+                } catch (error) {
+                    console.error(`Error resizing chart ${name}:`, error);
+                }
             }
         });
     }

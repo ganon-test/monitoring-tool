@@ -38,19 +38,37 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing MVC Dashboard...');
     
     // DashboardAppクラスが利用可能になるまで待機
+    let attempts = 0;
+    const maxAttempts = 50; // 5秒間試行
+    
     function initializeDashboard() {
+        attempts++;
+        
         if (typeof DashboardApp !== 'undefined') {
             window.dashboardApp = new DashboardApp();
-            window.dashboardApp.init();
-            console.log('DashboardApp initialized successfully');
-        } else {
-            console.log('DashboardApp not yet available, retrying...');
+            window.dashboardApp.init().then(() => {
+                console.log('DashboardApp initialized successfully');
+                
+                // 定期的にチャートの異常成長をチェック
+                setInterval(() => {
+                    if (window.dashboardApp && typeof window.dashboardApp.preventChartOvergrowth === 'function') {
+                        window.dashboardApp.preventChartOvergrowth();
+                    }
+                }, 5000); // 5秒ごと
+                
+            }).catch(error => {
+                console.error('Failed to initialize DashboardApp:', error);
+            });
+        } else if (attempts < maxAttempts) {
+            console.log(`DashboardApp not yet available, retrying... (${attempts}/${maxAttempts})`);
             setTimeout(initializeDashboard, 100);
+        } else {
+            console.error('DashboardApp failed to load after maximum attempts');
         }
     }
     
     // 少し遅延させてすべてのJSファイルが読み込まれるのを待つ
-    setTimeout(initializeDashboard, 500);
+    setTimeout(initializeDashboard, 200);
     
     // 後方互換性のために旧クラスも作成
     setTimeout(() => {

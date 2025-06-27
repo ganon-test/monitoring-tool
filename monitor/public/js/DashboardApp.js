@@ -74,10 +74,12 @@ class DashboardApp {
             
             // 初期ビューを設定
             this.switchView('nextcloud');
-            
-            // 初期データ取得
+              // 初期データ取得
             await this.loadInitialData();
             
+            // チャートの異常成長を防ぐ初期チェック
+            setTimeout(() => this.preventChartOvergrowth(), 500);
+
             console.log('Dashboard Application initialized successfully');
             
         } catch (error) {
@@ -101,9 +103,14 @@ class DashboardApp {
             proxmoxToggle.addEventListener('click', () => this.switchView('proxmox'));
         }
 
-        // ウィンドウリサイズハンドラー
+        // ウィンドウリサイズハンドラー（デバウンス付き）
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            setTimeout(() => this.resizeCharts(), 100);
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.resizeCharts();
+                this.preventChartOvergrowth();
+            }, 150);
         });
 
         // 詳細モード切り替えがあれば
@@ -286,9 +293,54 @@ class DashboardApp {
      * チャートをリサイズ
      */
     resizeCharts() {
-        if (this.chartManager && this.chartManager.resizeAllCharts) {
+        if (this.chartManager && typeof this.chartManager.resizeAllCharts === 'function') {
             this.chartManager.resizeAllCharts();
         }
+    }
+
+    /**
+     * チャートの異常成長を防ぐ
+     */
+    preventChartOvergrowth() {
+        // 全キャンバス要素をチェック
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+            const rect = canvas.getBoundingClientRect();
+            
+            // 異常に大きいキャンバスをリセット
+            if (rect.width > 2000 || rect.height > 2000) {
+                console.warn(`Canvas ${canvas.id} is too large: ${rect.width}x${rect.height}, resetting...`);
+                
+                // スタイルをリセット
+                canvas.style.width = '';
+                canvas.style.height = '';
+                canvas.style.maxWidth = '100%';
+                canvas.style.maxHeight = '100%';
+                
+                // 親コンテナのサイズに合わせる
+                const parent = canvas.parentElement;
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    if (parentRect.width > 0 && parentRect.height > 0) {
+                        canvas.style.width = Math.min(parentRect.width, 800) + 'px';
+                        canvas.style.height = Math.min(parentRect.height, 600) + 'px';
+                    }
+                }
+                
+                // Chart.jsインスタンスがある場合はリサイズ
+                if (this.chartManager && this.chartManager.charts) {
+                    this.chartManager.charts.forEach(chart => {
+                        if (chart.canvas === canvas && typeof chart.resize === 'function') {
+                            try {
+                                chart.resize();
+                            } catch (error) {
+                                console.error('Error resizing chart:', error);
+                            }
+                        }
+                    });
+                }
+            }
+        });
     }
 
     /**

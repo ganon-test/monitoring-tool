@@ -8,6 +8,28 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Canvas size protection -->
+    <style>
+        canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            width: auto !important;
+            height: auto !important;
+        }
+        
+        .gauge-container canvas,
+        .chart-container canvas {
+            max-width: 800px !important;
+            max-height: 600px !important;
+        }
+        
+        /* Prevent infinite growth */
+        .metric-card canvas {
+            max-width: 300px !important;
+            max-height: 300px !important;
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard">
