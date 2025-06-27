@@ -81,6 +81,9 @@ class DashboardApp {
             // チャートの異常成長を防ぐ初期チェック
             setTimeout(() => this.preventChartOvergrowth(), 500);
 
+            // グラフのサイズを適切に調整
+            this.adjustChartSizes();
+
             console.log('Dashboard Application initialized successfully');
             
         } catch (error) {
@@ -373,6 +376,29 @@ class DashboardApp {
 
             console.log('Chart overgrowth prevention applied');
         }
+    }
+
+    /**
+     * グラフのサイズを適切に調整
+     */
+    adjustChartSizes() {
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+            const rect = canvas.getBoundingClientRect();
+            const isGaugeChart = canvas.id.includes('gauge') || canvas.id.includes('donut');
+
+            if (isGaugeChart) {
+                canvas.style.width = '250px';
+                canvas.style.height = '250px';
+                canvas.style.maxWidth = '250px';
+                canvas.style.maxHeight = '250px';
+            } else {
+                canvas.style.width = '100%';
+                canvas.style.height = '350px';
+                canvas.style.maxWidth = 'none';
+                canvas.style.maxHeight = '350px';
+            }
+        });
     }
 
     /**

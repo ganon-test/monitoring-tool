@@ -636,50 +636,32 @@ class ChartManager {
     }
 
     /**
-     * 全チャートをリサイズ（無限ループ防止版）
+     * グラフのサイズを調整
      */
     resizeAllCharts() {
-        if (this.isResizing) {
-            console.warn('Chart resize already in progress, skipping...');
-            return;
-        }
-        
-        this.isResizing = true;
-        
-        try {
-            this.charts.forEach((chart, name) => {
-                try {
-                    if (chart && typeof chart.resize === 'function') {
-                        // 折れ線グラフとゲージチャートで異なるサイズ制御
-                        const canvas = chart.canvas;
-                        if (canvas) {
-                            const isGaugeChart = name.includes('gauge') || 
-                                               name.includes('donut') ||
-                                               name.includes('memory-') ||
-                                               name.includes('storage-');
-                            
-                            if (isGaugeChart) {
-                                // ゲージチャートは固定サイズ
-                                canvas.style.maxWidth = '280px';
-                                canvas.style.maxHeight = '280px';
-                            } else {
-                                // 折れ線グラフは横幅自由、高さ制限
-                                canvas.style.maxWidth = 'none';
-                                canvas.style.maxHeight = '350px';
-                            }
-                        }
-                        chart.resize();
+        this.charts.forEach((chart, name) => {
+            try {
+                const canvas = chart.canvas;
+                const isGaugeChart = name.includes('gauge') || name.includes('donut');
+
+                if (canvas) {
+                    if (isGaugeChart) {
+                        canvas.style.width = '250px';
+                        canvas.style.height = '250px';
+                        canvas.style.maxWidth = '250px';
+                        canvas.style.maxHeight = '250px';
+                    } else {
+                        canvas.style.width = '100%';
+                        canvas.style.height = '350px';
+                        canvas.style.maxWidth = 'none';
+                        canvas.style.maxHeight = '350px';
                     }
-                } catch (error) {
-                    console.error(`Error resizing chart ${name}:`, error);
                 }
-            });
-        } finally {
-            // リサイズフラグをリセット
-            setTimeout(() => {
-                this.isResizing = false;
-            }, 500);
-        }
+                chart.resize();
+            } catch (error) {
+                console.error(`Error resizing chart ${name}:`, error);
+            }
+        });
     }
 
     /**
