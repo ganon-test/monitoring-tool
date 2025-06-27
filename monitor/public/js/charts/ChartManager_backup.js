@@ -1,5 +1,5 @@
 /**
- * チャート管理クラス - Chart.jsの統合管理
+ * チャート管理クラス - Chart.jsインスタンスの作成と管理
  */
 class ChartManager {
     constructor() {
@@ -8,126 +8,143 @@ class ChartManager {
     }
 
     /**
-     * 初期化
+     * 初期化メソッド
      */
     init() {
         console.log('ChartManager initialized');
+        // 既存のチャートをすべて破棄してから初期化
+        this.destroyAllCharts();
         this.initializeAllCharts();
+    }
+
+    /**
+     * 安全なチャート作成ヘルパー
+     */
+    createChartSafely(canvasId, chartName, config) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.warn(`Canvas element '${canvasId}' not found`);
+            return null;
+        }
+
+        // 既存のチャートがある場合は破棄
+        this.destroyChart(chartName);
+
+        // キャンバスサイズ制限を追加
+        const originalOnResize = config.options?.onResize;
+        if (!config.options) config.options = {};
+        
+        config.options.onResize = function(chart, size) {
+            // 無限ループを防ぐためのフラグ
+            if (chart._isResizing) return;
+            chart._isResizing = true;
+            
+            setTimeout(() => {
+                chart._isResizing = false;
+            }, 100);
+            
+            // 異常なサイズの場合は制限
+            if (size.width > 1000 || size.height > 1000) {
+                console.warn(`Chart ${chartName} size too large, limiting: ${size.width}x${size.height}`);
+                const parent = chart.canvas.parentElement;
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    const maxWidth = Math.min(parentRect.width || 400, 400);
+                    const maxHeight = Math.min(parentRect.height || 300, 300);
+                    
+                    chart.canvas.style.width = maxWidth + 'px';
+                    chart.canvas.style.height = maxHeight + 'px';
+                }
+                return; // resizeを呼ばない
+            }
+            
+            // 元のonResizeコールバックがあれば実行
+            if (originalOnResize && !chart._isResizing) {
+                originalOnResize.call(this, chart, size);
+            }
+        };
+
+        try {
+            const chart = new Chart(ctx, config);
+            this.charts.set(chartName, chart);
+            this.chartConfigs.set(chartName, config);
+            return chart;
+        } catch (error) {
+            console.error(`Failed to create chart '${chartName}':`, error);
+            return null;
+        }
     }
 
     /**
      * 全チャートを初期化
      */
     initializeAllCharts() {
-        try {
-            // Nextcloudチャート
-            this.createActiveUsersChart();
-            this.createStorageDonutChart();
-            this.createCpuLoadChart();
-            this.createMemoryGaugeChart();
-            this.createUsersTimelineChart();
-            this.createFileDistributionChart();
-            this.createSharesChart();
-            this.createNextcloudHistoryChart();
-
-            // Proxmoxチャート
-            this.createClusterCpuGauge();
-            this.createClusterMemoryGauge();
-            this.createClusterStorageGauge();
-            this.createNodePerformanceChart();
-            this.createNetworkMiniChart();
-            this.createProxmoxResourcesChart();
-            this.createProxmoxHistoryChart();
-
-            console.log('All charts initialized successfully');
-        } catch (error) {
-            console.error('Error initializing charts:', error);
-        }
+        this.initializeNextcloudCharts();
+        this.initializeProxmoxCharts();
     }
 
     /**
-     * チャートを安全に作成
+     * Nextcloudチャートを初期化
      */
-    createChartSafely(canvasId, chartName, config) {
-        try {
-            const ctx = document.getElementById(canvasId);
-            if (!ctx) {
-                console.warn(`Canvas element ${canvasId} not found`);
-                return;
-            }
-
-            // 既存のチャートを破棄
-            if (this.charts.has(chartName)) {
-                this.destroyChart(chartName);
-            }
-
-            const chart = new Chart(ctx, config);
-            this.charts.set(chartName, chart);
-            this.chartConfigs.set(chartName, config);
-            console.log(`Chart ${chartName} created successfully`);
-        } catch (error) {
-            console.error(`Error creating chart ${chartName}:`, error);
-        }
+    initializeNextcloudCharts() {
+        this.createMemoryGauge();
+        this.createCpuLoadChart();
+        this.createStorageDonutChart();
+        this.createUsersTimelineChart();
+        this.createFileDistributionChart();
+        this.createSharesChart();
+        this.createNextcloudHistoryChart();
     }
 
     /**
-     * アクティブユーザーチャート作成
+     * Proxmoxチャートを初期化
      */
-    createActiveUsersChart() {
+    initializeProxmoxCharts() {
+        this.createClusterCpuGauge();
+        this.createClusterMemoryGauge();
+        this.createClusterStorageGauge();
+        this.createNodePerformanceChart();
+        this.createNetworkMiniChart();
+        this.createProxmoxResourcesChart();
+        this.createProxmoxHistoryChart();
+    }
+
+    /**
+     * メモリゲージチャート作成
+     */
+    createMemoryGauge() {
         const config = {
-            type: 'bar',
+            type: 'doughnut',
             data: {
-                labels: ['Online', 'Away', 'Offline'],
                 datasets: [{
-                    data: [0, 0, 0],
-                    backgroundColor: ['#00d4ff', '#ffd700', '#6b7280'],
-                    borderWidth: 0
+                    data: [0, 100],
+                    backgroundColor: ['#00d4ff', 'rgba(255, 255, 255, 0.1)'],
+                    borderWidth: 0,
+                    cutout: '80%'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: { display: false },
-                    y: { display: false, beginAtZero: true }
-                }
-            }
-        };
-
-        this.createChartSafely('active-users-chart', 'activeUsers', config);
-    }
-
-    /**
-     * ストレージドーナツチャート作成
-     */
-    createStorageDonutChart() {
-        const config = {
-            type: 'doughnut',
-            data: {
-                labels: ['Used', 'Free'],
-                datasets: [{
-                    data: [0, 100],
-                    backgroundColor: ['#f97316', 'rgba(255, 255, 255, 0.1)'],
-                    borderWidth: 0,
-                    cutout: '70%'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
                 aspectRatio: 1,
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
                 },
-                layout: { padding: 10 }
+                layout: {
+                    padding: 0
+                },
+                // 強制的なサイズ制限
+                onResize: function(chart, size) {
+                    if (size.width > 400 || size.height > 400) {
+                        chart.canvas.style.maxWidth = '300px';
+                        chart.canvas.style.maxHeight = '300px';
+                    }
+                }
             }
         };
 
-        this.createChartSafely('storage-donut-chart', 'storageDonut', config);
+        this.createChartSafely('memory-gauge', 'memoryGauge', config);
     }
 
     /**
@@ -151,7 +168,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 3,
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { display: false },
                     y: { beginAtZero: true, display: false }
@@ -160,46 +177,73 @@ class ChartManager {
                     legend: { display: false },
                     tooltip: { enabled: false }
                 },
-                layout: { padding: 5 }
+                layout: {
+                    padding: 5
+                },
+                elements: {
+                    line: {
+                        tension: 0.4
+                    }
+                },
+                // レスポンシブ設定の改善
+                onResize: function(chart, size) {
+                    // 横幅制限を緩和、縦幅のみ制限
+                    if (size.height > 300) {
+                        chart.canvas.style.maxHeight = '280px';
+                    }
+                }
             }
         };
 
         this.createChartSafely('cpu-load-chart', 'cpuLoad', config);
+        this.chartConfigs.set('cpuLoad', config);
     }
 
     /**
-     * メモリゲージチャート作成
+     * ストレージドーナツチャート作成
      */
-    createMemoryGaugeChart() {
+    createStorageDonutChart() {
         const config = {
             type: 'doughnut',
             data: {
                 datasets: [{
                     data: [0, 100],
-                    backgroundColor: ['#8b5cf6', 'rgba(255, 255, 255, 0.1)'],
+                    backgroundColor: ['#10b981', 'rgba(255, 255, 255, 0.1)'],
                     borderWidth: 0,
                     cutout: '75%'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 aspectRatio: 1,
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
                 },
-                layout: { padding: 10 }
+                layout: {
+                    padding: 0
+                },
+                // 強制的なサイズ制限
+                onResize: function(chart, size) {
+                    if (size.width > 400 || size.height > 400) {
+                        chart.canvas.style.maxWidth = '300px';
+                        chart.canvas.style.maxHeight = '300px';
+                    }
+                }
             }
         };
 
-        this.createChartSafely('memory-gauge', 'memoryGauge', config);
+        this.createChartSafely('storage-donut-chart', 'storageDonut', config);
     }
 
     /**
      * ユーザータイムラインチャート作成
      */
     createUsersTimelineChart() {
+        const ctx = document.getElementById('users-timeline-chart');
+        if (!ctx) return;
+
         const config = {
             type: 'line',
             data: {
@@ -216,7 +260,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 3,
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -231,32 +275,71 @@ class ChartManager {
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
                 },
-                layout: { padding: 10 }
+                layout: {
+                    padding: 10
+                }
             }
         };
 
-        this.createChartSafely('users-timeline-chart', 'usersTimeline', config);
+        this.charts.set('usersTimeline', new Chart(ctx, config));
+        this.chartConfigs.set('usersTimeline', config);
     }
 
     /**
      * ファイル分布チャート作成
      */
     createFileDistributionChart() {
+        const ctx = document.getElementById('file-distribution-chart');
+        if (!ctx) return;
+
         const config = {
-            type: 'bar',
+            type: 'doughnut',
             data: {
-                labels: ['Documents', 'Images', 'Videos', 'Others'],
+                labels: ['Documents', 'Images', 'Videos', 'Other'],
                 datasets: [{
-                    data: [0, 0, 0, 0],
-                    backgroundColor: ['#f97316', '#10b981', '#8b5cf6', '#6b7280']
+                    data: [30, 25, 20, 25],
+                    backgroundColor: ['#00d4ff', '#8b5cf6', '#10b981', '#f97316'],
+                    borderWidth: 2,
+                    borderColor: '#1a1a1a'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
-                },
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#ffffff' }
+                    }
+                }
+            }
+        };
+
+        this.charts.set('fileDistribution', new Chart(ctx, config));
+        this.chartConfigs.set('fileDistribution', config);
+    }
+
+    /**
+     * 共有チャート作成
+     */
+    createSharesChart() {
+        const ctx = document.getElementById('shares-chart');
+        if (!ctx) return;
+
+        const config = {
+            type: 'bar',
+            data: {
+                labels: ['Public Links', 'User Shares', 'Group Shares', 'Federated'],
+                datasets: [{
+                    label: 'Active Shares',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#00d4ff', '#8b5cf6', '#10b981', '#f97316'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -267,43 +350,24 @@ class ChartManager {
                         ticks: { color: '#b0b0b0' },
                         beginAtZero: true
                     }
-                }
-            }
-        };
-
-        this.createChartSafely('file-distribution-chart', 'fileDistribution', config);
-    }
-
-    /**
-     * 共有チャート作成
-     */
-    createSharesChart() {
-        const config = {
-            type: 'doughnut',
-            data: {
-                labels: ['Public', 'Private', 'Group'],
-                datasets: [{
-                    data: [0, 0, 0],
-                    backgroundColor: ['#00d4ff', '#f97316', '#8b5cf6'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                },
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
                 }
             }
         };
 
-        this.createChartSafely('shares-chart', 'shares', config);
+        this.charts.set('shares', new Chart(ctx, config));
+        this.chartConfigs.set('shares', config);
     }
 
     /**
      * Nextcloud履歴チャート作成
      */
     createNextcloudHistoryChart() {
+        const ctx = document.getElementById('nextcloud-history-chart');
+        if (!ctx) return;
+
         const config = {
             type: 'line',
             data: {
@@ -330,7 +394,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 2.5,
+                aspectRatio: 2.5, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -344,17 +408,36 @@ class ChartManager {
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
                 },
-                layout: { padding: 10 }
+                layout: {
+                    padding: 10
+                }
             }
         };
 
-        this.createChartSafely('nextcloud-history-chart', 'nextcloudHistory', config);
+        this.charts.set('nextcloudHistory', new Chart(ctx, config));
+        this.chartConfigs.set('nextcloudHistory', config);
+    }
+                }
+            }
+        };
+
+        this.charts.set('nextcloudHistory', new Chart(ctx, config));
+        this.chartConfigs.set('nextcloudHistory', config);
     }
 
     /**
      * クラスターCPUゲージ作成
      */
     createClusterCpuGauge() {
+        const ctx = document.getElementById('cluster-cpu-gauge');
+        if (!ctx) return;
+
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -369,7 +452,9 @@ class ChartManager {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1,
-                layout: { padding: 10 },
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
@@ -377,13 +462,23 @@ class ChartManager {
             }
         };
 
-        this.createChartSafely('cluster-cpu-gauge', 'clusterCpuGauge', config);
+        this.charts.set('clusterCpuGauge', new Chart(ctx, config));
+        this.chartConfigs.set('clusterCpuGauge', config);
     }
 
     /**
      * クラスターメモリゲージ作成
      */
     createClusterMemoryGauge() {
+        const ctx = document.getElementById('cluster-memory-gauge');
+        if (!ctx) return;
+
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -398,7 +493,9 @@ class ChartManager {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1,
-                layout: { padding: 10 },
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
@@ -406,13 +503,23 @@ class ChartManager {
             }
         };
 
-        this.createChartSafely('cluster-memory-gauge', 'clusterMemoryGauge', config);
+        this.charts.set('clusterMemoryGauge', new Chart(ctx, config));
+        this.chartConfigs.set('clusterMemoryGauge', config);
     }
 
     /**
      * クラスターストレージゲージ作成
      */
     createClusterStorageGauge() {
+        const ctx = document.getElementById('cluster-storage-gauge');
+        if (!ctx) return;
+
+        // キャンバスサイズを制限
+        ctx.style.maxWidth = '200px';
+        ctx.style.maxHeight = '200px';
+        ctx.width = 200;
+        ctx.height = 200;
+
         const config = {
             type: 'doughnut',
             data: {
@@ -427,7 +534,9 @@ class ChartManager {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1,
-                layout: { padding: 10 },
+                layout: {
+                    padding: 10
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
@@ -435,13 +544,17 @@ class ChartManager {
             }
         };
 
-        this.createChartSafely('cluster-storage-gauge', 'clusterStorageGauge', config);
+        this.charts.set('clusterStorageGauge', new Chart(ctx, config));
+        this.chartConfigs.set('clusterStorageGauge', config);
     }
 
     /**
      * ノードパフォーマンスチャート作成
      */
     createNodePerformanceChart() {
+        const ctx = document.getElementById('node-performance-chart');
+        if (!ctx) return;
+
         const config = {
             type: 'bar',
             data: {
@@ -450,21 +563,21 @@ class ChartManager {
                     {
                         label: 'CPU Usage (%)',
                         data: [],
-                        backgroundColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.7)',
                         borderColor: '#f97316',
                         borderWidth: 1
                     },
                     {
                         label: 'Memory Usage (%)',
                         data: [],
-                        backgroundColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.7)',
                         borderColor: '#8b5cf6',
                         borderWidth: 1
                     },
                     {
                         label: 'Storage Usage (%)',
                         data: [],
-                        backgroundColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
                         borderColor: '#10b981',
                         borderWidth: 1
                     }
@@ -474,7 +587,11 @@ class ChartManager {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { labels: { color: '#ffffff' } }
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: '#ffffff' }
+                    }
                 },
                 scales: {
                     x: {
@@ -496,13 +613,17 @@ class ChartManager {
             }
         };
 
-        this.createChartSafely('node-performance-chart', 'nodePerformance', config);
+        this.charts.set('nodePerformance', new Chart(ctx, config));
+        this.chartConfigs.set('nodePerformance', config);
     }
 
     /**
      * ネットワークミニチャート作成
      */
     createNetworkMiniChart() {
+        const ctx = document.getElementById('network-mini-chart');
+        if (!ctx) return;
+
         const config = {
             type: 'line',
             data: {
@@ -533,7 +654,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 3,
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { display: false },
                     y: { display: false, beginAtZero: true }
@@ -542,43 +663,68 @@ class ChartManager {
                     legend: { display: false },
                     tooltip: { enabled: false }
                 },
-                layout: { padding: 5 }
+                layout: {
+                    padding: 5
+                },
+                elements: {
+                    line: {
+                        tension: 0.4
+                    }
+                }
             }
         };
 
-        this.createChartSafely('network-mini-chart', 'networkMini', config);
+        this.charts.set('networkMini', new Chart(ctx, config));
+        this.charts.set('networkMini', new Chart(ctx, config));
+        this.chartConfigs.set('networkMini', config);
     }
 
     /**
      * Proxmoxリソースチャート作成
      */
     createProxmoxResourcesChart() {
+        const ctx = document.getElementById('proxmox-resources-chart');
+        if (!ctx) return;
+
         const config = {
-            type: 'doughnut',
+            type: 'pie',
             data: {
-                labels: ['CPU', 'Memory', 'Storage'],
+                labels: ['Running VMs', 'Stopped VMs', 'Containers', 'Available'],
                 datasets: [{
-                    data: [30, 50, 20],
-                    backgroundColor: ['#f97316', '#8b5cf6', '#10b981'],
-                    borderWidth: 0
+                    data: [0, 0, 0, 100],
+                    backgroundColor: [
+                        '#10b981',
+                        '#ef4444',
+                        '#f59e0b',
+                        'rgba(255, 255, 255, 0.1)'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#1a1a1a'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { labels: { color: '#ffffff' } }
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#ffffff' }
+                    }
                 }
             }
         };
 
-        this.createChartSafely('proxmox-resources-chart', 'proxmoxResources', config);
+        this.charts.set('proxmoxResources', new Chart(ctx, config));
+        this.chartConfigs.set('proxmoxResources', config);
     }
 
     /**
      * Proxmox履歴チャート作成
      */
     createProxmoxHistoryChart() {
+        const ctx = document.getElementById('proxmox-history-chart');
+        if (!ctx) return;
+
         const config = {
             type: 'line',
             data: {
@@ -605,7 +751,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 2.5,
+                aspectRatio: 2.5, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -620,11 +766,14 @@ class ChartManager {
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
                 },
-                layout: { padding: 10 }
+                layout: {
+                    padding: 10
+                }
             }
         };
 
-        this.createChartSafely('proxmox-history-chart', 'proxmoxHistory', config);
+        this.charts.set('proxmoxHistory', new Chart(ctx, config));
+        this.chartConfigs.set('proxmoxHistory', config);
     }
 
     /**
@@ -639,27 +788,35 @@ class ChartManager {
      */
     resizeAllCharts() {
         this.charts.forEach((chart, name) => {
-            try {
-                if (chart && typeof chart.resize === 'function') {
+            if (chart && typeof chart.resize === 'function') {
+                try {
+                    // キャンバスのサイズをチェック
+                    const canvas = chart.canvas;
+                    if (canvas) {
+                        const rect = canvas.getBoundingClientRect();
+                        if (rect.width > 2000 || rect.height > 2000) {
+                            console.warn(`Chart ${name} has abnormal size: ${rect.width}x${rect.height}, resetting...`);
+                            canvas.style.width = '100%';
+                            canvas.style.height = '100%';
+                            canvas.style.maxWidth = '800px';
+                            canvas.style.maxHeight = '600px';
+                        }
+                    }
                     chart.resize();
+                } catch (error) {
+                    console.error(`Error resizing chart ${name}:`, error);
                 }
-            } catch (error) {
-                console.error(`Error resizing chart ${name}:`, error);
             }
         });
     }
 
     /**
-     * 特定のチャートを破棄
+     * チャートを破棄
      */
     destroyChart(name) {
         const chart = this.charts.get(name);
         if (chart) {
-            try {
-                chart.destroy();
-            } catch (error) {
-                console.error(`Error destroying chart ${name}:`, error);
-            }
+            chart.destroy();
             this.charts.delete(name);
             this.chartConfigs.delete(name);
         }
