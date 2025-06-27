@@ -18,18 +18,22 @@ jobs:
           key: ${{ secrets.HOME_SERVER_SSH_KEY }}
           port: 2222
           script: |
-            echo "[*] Switching to project directory"
-            cd ~/MONITORING-API
+            # 必要ならクローン
+            if [ ! -d ~/MONITORING-API ]; then
+            git clone git@github.com:YOUR_USER/YOUR_REPO.git ~/MONITORING-API
+            fi
 
-            echo "[*] Pulling latest code"
+            cd ~/MONITORING-API
             git pull origin main
 
-            echo "[*] Restarting Python Flask API"
+            # Flask 起動
+            command -v screen >/dev/null 2>&1 || apt install -y screen
             screen -S api -X quit || true
             screen -dmS api python3 main.py
 
-            echo "[*] Restarting Node.js Server"
+            # Node.js 側
             cd monitor
-            npm install
+            [ -f package.json ] && npm install
             screen -S monitor -X quit || true
             screen -dmS monitor node server.js
+
