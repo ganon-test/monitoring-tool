@@ -176,25 +176,12 @@ document.addEventListener('DOMContentLoaded', function() {
             window.dashboardApp.init().then(() => {
                 console.log('DashboardApp initialized successfully');
                 
-                // 定期的にチャートの異常成長をチェック（頻度を上げる）
+                // 定期的にチャートのリサイズを実行（2秒ごと）
                 setInterval(() => {
-                    if (window.dashboardApp && typeof window.dashboardApp.preventChartOvergrowth === 'function') {
-                        window.dashboardApp.preventChartOvergrowth();
+                    if (window.dashboardApp) {
+                        window.dashboardApp.resizeCharts();
                     }
-                    
-                    // 緊急チェック：巨大なキャンバスがあれば即座にリセット
-                    const canvases = document.querySelectorAll('canvas');
-                    canvases.forEach(canvas => {
-                        const rect = canvas.getBoundingClientRect();
-                        if (rect.width > 600 || rect.height > 500) {
-                            console.warn(`Emergency: Canvas ${canvas.id} too large, immediate reset`);
-                            canvas.style.width = '300px !important';
-                            canvas.style.height = '250px !important';
-                            canvas.style.maxWidth = '300px !important';
-                            canvas.style.maxHeight = '250px !important';
-                        }
-                    });
-                }, 2000); // 2秒ごとに変更
+                }, 2000);
                 
                 // キャンバス最適化を実行
                 setTimeout(() => {
