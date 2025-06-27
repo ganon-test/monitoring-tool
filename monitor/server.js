@@ -18,7 +18,9 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = process.env.API_BASE || 'http://localhost:5000';
+
+console.log('API_BASE set to:', API_BASE);
 
 // Serve the main dashboard
 app.get('/', (req, res) => {
@@ -55,9 +57,17 @@ app.get('/api/proxmox', async (req, res) => {
 
 app.get('/api/proxmox/detailed', async (req, res) => {
   try {
+    console.log('Requesting detailed data from:', `${API_BASE}/metrics/proxmox/detailed`);
     const response = await axios.get(`${API_BASE}/metrics/proxmox/detailed`);
+    console.log('Response status:', response.status);
+    console.log('Response data keys:', Object.keys(response.data));
     res.json(response.data);
   } catch (error) {
+    console.error('Error fetching proxmox detailed:', error.message);
+    if (error.response) {
+      console.error('Error response status:', error.response.status);
+      console.error('Error response data:', error.response.data);
+    }
     res.status(500).json({ error: error.message });
   }
 });

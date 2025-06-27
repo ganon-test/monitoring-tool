@@ -27,6 +27,9 @@ jobs:
             cd ~/MONITORING-API
             git pull origin main || exit 1
 
+            # Python依存関係のインストール
+            pip3 install -r requirements.txt || exit 1
+
             # screen コマンドの存在確認＆インストール
             command -v screen >/dev/null 2>&1 || apt install -y screen
 
@@ -43,5 +46,8 @@ jobs:
             # Node.js monitor
             if [ -d ~/MONITORING-API/monitor ]; then
               screen -S monitoring-node -X quit || true
-              screen -dmS monitoring-node bash -c 'cd ~/MONITORING-API/monitor && npm install && node server.js'
+              screen -dmS monitoring-node bash -c '
+                export API_BASE="http://localhost:5000";
+                cd ~/MONITORING-API/monitor && npm install && node server.js
+              '
             fi

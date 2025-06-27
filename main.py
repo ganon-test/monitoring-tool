@@ -8,6 +8,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
+# CORSヘッダーを追加
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    return response
+
 # 環境変数から設定を読み込む関数
 def load_config():
     with open('config.yaml', 'r') as f:
@@ -93,44 +101,59 @@ def proxmox_history():
 # 詳細なProxmoxデータ取得エンドポイント
 @app.route('/metrics/proxmox/detailed')
 def proxmox_detailed():
-    data = proxmox_api.fetch_proxmox_cluster_any(config['proxmox'])
-    if 'error' in data:
-        return jsonify(data)
-    
-    # 詳細データを整理
-    detailed_data = {
-        'cluster_info': data.get('cluster_status', {}),
-        'nodes': [],
-        'vms': [],
-        'containers': [],
-        'storage': []
-    }
-    
-    # ノード情報
-    if 'nodes' in data and 'data' in data['nodes']:
-        for node in data['nodes']['data']:
-            detailed_data['nodes'].append(node)
-    
-    # リソース情報から VM/コンテナ/ストレージを分類
-    if 'cluster_resources' in data and 'data' in data['cluster_resources']:
-        for resource in data['cluster_resources']['data']:
-            if resource.get('type') == 'qemu':
-                detailed_data['vms'].append(resource)
-            elif resource.get('type') == 'lxc':
-                detailed_data['containers'].append(resource)
-            elif resource.get('type') == 'storage':
-                detailed_data['storage'].append(resource)
-    
-    # ノード詳細情報を追加
-    if 'node_details' in data:
-        for node_name, node_detail in data['node_details'].items():
-            # 該当ノードを見つけて詳細情報を追加
-            for node in detailed_data['nodes']:
-                if node.get('node') == node_name:
-                    node['details'] = node_detail
-                    break
-    
-    return jsonify(detailed_data)
+    try:
+        print("Fetching Proxmox detailed data...")
+        data = proxmox_api.fetch_proxmox_cluster_any(config['proxmox'])
+        print(f"Received data keys: {data.keys() if isinstance(data, dict) else type(data)}")
+        
+        if 'error' in data:
+            print(f"Error in data: {data['error']}")
+            return jsonify(data), 500
+        
+        # 詳細データを整理
+        detailed_data = {
+            'cluster_info': data.get('cluster_status', {}),
+            'nodes': [],
+            'vms': [],
+            'containers': [],
+            'storage': []
+        }
+        
+        # ノード情報
+        if 'nodes' in data and 'data' in data['nodes']:
+            print(f"Processing {len(data['nodes']['data'])} nodes")
+            for node in data['nodes']['data']:
+                detailed_data['nodes'].append(node)
+        
+        # リソース情報から VM/コンテナ/ストレージを分類
+        if 'cluster_resources' in data and 'data' in data['cluster_resources']:
+            print(f"Processing {len(data['cluster_resources']['data'])} cluster resources")
+            for resource in data['cluster_resources']['data']:
+                if resource.get('type') == 'qemu':
+                    detailed_data['vms'].append(resource)
+                elif resource.get('type') == 'lxc':
+                    detailed_data['containers'].append(resource)
+                elif resource.get('type') == 'storage':
+                    detailed_data['storage'].append(resource)
+        
+        # ノード詳細情報を追加
+        if 'node_details' in data:
+            print(f"Processing node details for {len(data['node_details'])} nodes")
+            for node_name, node_detail in data['node_details'].items():
+                # 該当ノードを見つけて詳細情報を追加
+                for node in detailed_data['nodes']:
+                    if node.get('node') == node_name:
+                        node['details'] = node_detail
+                        break
+        
+        print(f"Returning detailed data with {len(detailed_data['nodes'])} nodes, {len(detailed_data['vms'])} VMs, {len(detailed_data['containers'])} containers")
+        return jsonify(detailed_data)
+        
+    except Exception as e:
+        print(f"Exception in proxmox_detailed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     print('--- Debug Links ---')
