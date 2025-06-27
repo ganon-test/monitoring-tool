@@ -185,14 +185,17 @@ class MonitoringDashboard {
     }
 
     setupEventListeners() {
-        // Auto-refresh every 30 seconds
+        // Auto-refresh every 10 seconds
         setInterval(() => {
             this.refreshData();
-        }, 30000);
+        }, 10000);
     }
 
-    updateNextcloudData(data) {
-        if (data.error) {
+    updateNextcloudData(response) {
+        // 新しいレスポンス形式に対応
+        const data = response.data || response;
+        
+        if (data.error || response.error) {
             this.updateServiceStatus('nextcloud', false);
             return;
         }
@@ -274,8 +277,11 @@ class MonitoringDashboard {
         this.loadNextcloudHistory();
     }
 
-    updateProxmoxData(data) {
-        if (data.error) {
+    updateProxmoxData(response) {
+        // 新しいレスポンス形式に対応
+        const data = response.data || response;
+        
+        if (data.error || response.error) {
             this.updateServiceStatus('proxmox', false);
             return;
         }
@@ -283,18 +289,18 @@ class MonitoringDashboard {
         this.updateServiceStatus('proxmox', true);
 
         // Update cluster nodes
-        if (data.nodes && data.nodes.data) {
-            this.updateClusterNodes(data.nodes.data);
+        if (data.nodes) {
+            this.updateClusterNodes(data.nodes);
         }
 
-        // Update resource distribution
-        if (data.cluster_resources && data.cluster_resources.data) {
-            this.updateResourceDistribution(data.cluster_resources.data);
+        // Update resource distribution - 新しい形式に対応
+        if (data.nodes && data.vms && data.containers) {
+            this.updateResourceDistributionNew(data);
         }
 
-        // Update VM status
-        if (data.cluster_resources && data.cluster_resources.data) {
-            this.updateVMStatus(data.cluster_resources.data);
+        // Update VM status - 新しい形式に対応
+        if (data.vms && data.containers) {
+            this.updateVMStatusNew(data.vms, data.containers);
         }
 
         // Load historical data
@@ -306,29 +312,33 @@ class MonitoringDashboard {
         container.innerHTML = '';
 
         nodes.forEach(node => {
-            if (node.type === 'node') {
-                const nodeCard = document.createElement('div');
-                nodeCard.className = 'node-card';
-                
-                const statusClass = node.status === 'online' ? 'online' : 'offline';
-                const cpuPercent = node.cpu ? (node.cpu * 100).toFixed(1) : '0';
-                const memPercent = node.mem && node.maxmem ? 
-                    ((node.mem / node.maxmem) * 100).toFixed(1) : '0';
-
-                nodeCard.innerHTML = `
-                    <div class="node-header">
-                        <div class="node-name">${node.node}</div>
-                        <div class="node-status ${statusClass}"></div>
-                    </div>
-                    <div class="node-details">
-                        <div>CPU: ${cpuPercent}%</div>
-                        <div>Memory: ${memPercent}%</div>
-                        <div>Uptime: ${this.formatUptime(node.uptime)}</div>
-                    </div>
-                `;
-
-                container.appendChild(nodeCard);
+            const nodeCard = document.createElement('div');
+            nodeCard.className = 'node-card';
+            
+            const statusClass = node.status === 'online' ? 'online' : 'offline';
+            const cpuPercent = node.cpu ? (node.cpu * 100).toFixed(1) : '0';
+            
+            // 新しいメモリ形式に対応
+            let memPercent = '0';
+            if (node.memory && node.memory.percentage) {
+                memPercent = node.memory.percentage.toFixed(1);
+            } else if (node.mem && node.maxmem) {
+                memPercent = ((node.mem / node.maxmem) * 100).toFixed(1);
             }
+
+            nodeCard.innerHTML = `
+                <div class="node-header">
+                    <div class="node-name">${node.node}</div>
+                    <div class="node-status ${statusClass}"></div>
+                </div>
+                <div class="node-details">
+                    <div>CPU: ${cpuPercent}%</div>
+                    <div>Memory: ${memPercent}%</div>
+                    <div>Uptime: ${this.formatUptime(node.uptime)}</div>
+                </div>
+            `;
+
+            container.appendChild(nodeCard);
         });
     }
 
@@ -350,6 +360,16 @@ class MonitoringDashboard {
         this.charts.proxmoxResources.update();
     }
 
+    updateResourceDistributionNew(data) {
+        const runningVMs = data.vms.filter(vm => vm.status === 'running').length;
+        const stoppedVMs = data.vms.filter(vm => vm.status === 'stopped').length;
+        const containers = data.containers.length;
+        const storage = 0; // ストレージ情報は基本APIでは含まれない
+
+        this.charts.proxmoxResources.data.datasets[0].data = [runningVMs, stoppedVMs, containers, storage];
+        this.charts.proxmoxResources.update();
+    }
+
     updateVMStatus(resources) {
         const container = document.getElementById('vm-status');
         container.innerHTML = '';
@@ -357,6 +377,27 @@ class MonitoringDashboard {
         const vms = resources.filter(r => r.type === 'qemu' || r.type === 'lxc').slice(0, 10);
 
         vms.forEach(vm => {
+            const vmItem = document.createElement('div');
+            vmItem.className = 'vm-item';
+            
+            const statusClass = vm.status === 'running' ? 'running' : 'stopped';
+            
+            vmItem.innerHTML = `
+                <div class="vm-name">${vm.name || vm.vmid}</div>
+                <div class="vm-status-badge ${statusClass}">${vm.status}</div>
+            `;
+
+            container.appendChild(vmItem);
+        });
+    }
+
+    updateVMStatusNew(vms, containers) {
+        const container = document.getElementById('vm-status');
+        container.innerHTML = '';
+
+        const allVMs = [...vms, ...containers].slice(0, 10);
+
+        allVMs.forEach(vm => {
             const vmItem = document.createElement('div');
             vmItem.className = 'vm-item';
             

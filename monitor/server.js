@@ -106,8 +106,8 @@ io.on('connection', (socket) => {
   // Send data immediately
   sendData();
 
-  // Send data every 30 seconds
-  const interval = setInterval(sendData, 30000);
+  // Send data every 10 seconds
+  const interval = setInterval(sendData, 10000);
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
