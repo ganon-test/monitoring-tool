@@ -52,6 +52,7 @@ config = load_config()
 
 @app.route('/metrics/nextcloud')
 def nextcloud_metrics():
+    print(f"[{datetime.now()}] API Request: /metrics/nextcloud")
     if cache['nextcloud']['error']:
         return jsonify({"error": cache['nextcloud']['error']}), 500
     
@@ -78,6 +79,7 @@ def nextcloud_history():
 
 @app.route('/metrics/proxmox')
 def proxmox_metrics():
+    print(f"[{datetime.now()}] API Request: /metrics/proxmox")
     if cache['proxmox']['error']:
         return jsonify({"error": cache['proxmox']['error']}), 500
     
@@ -361,6 +363,7 @@ if __name__ == '__main__':
     print(f'Update interval: {UPDATE_INTERVAL} seconds (High-frequency mode)')
     print('--- Debug Links ---')
     print('Status:         http://localhost:5000/status')
+    print('Status:         http://127.0.0.1:5000/status')
     print('Nextcloud:      http://localhost:5000/metrics/nextcloud')
     print('Nextcloud History: http://localhost:5000/metrics/nextcloud/history')
     print('Proxmox:        http://localhost:5000/metrics/proxmox')
@@ -371,6 +374,9 @@ if __name__ == '__main__':
     print('Refresh All:    http://localhost:5000/refresh/all')
     print('Refresh Nextcloud: http://localhost:5000/refresh/nextcloud')
     print('Refresh Proxmox: http://localhost:5000/refresh/proxmox')
+    print('--- Network Info ---')
+    print('Flask server running on: 0.0.0.0:5000 (all interfaces)')
+    print('Node.js should connect to: localhost:5000')
     print('-------------------')
     
     # 初回データ取得
