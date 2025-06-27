@@ -28,7 +28,7 @@ jobs:
             git pull origin main || exit 1
 
             # Python依存関係のインストール
-            pip3 install -r requirements.txt || exit 1
+            pip3 install --break-system-packages -r requirements.txt || exit 1
 
             # screen コマンドの存在確認＆インストール
             command -v screen >/dev/null 2>&1 || apt install -y screen
