@@ -168,7 +168,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                aspectRatio: 2,
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { display: false },
                     y: { beginAtZero: true, display: false }
@@ -178,18 +178,18 @@ class ChartManager {
                     tooltip: { enabled: false }
                 },
                 layout: {
-                    padding: 0
+                    padding: 5
                 },
                 elements: {
                     line: {
                         tension: 0.4
                     }
                 },
-                // 強制的なサイズ制限
+                // レスポンシブ設定の改善
                 onResize: function(chart, size) {
-                    if (size.width > 600 || size.height > 300) {
-                        chart.canvas.style.maxWidth = '500px';
-                        chart.canvas.style.maxHeight = '250px';
+                    // 横幅制限を緩和、縦幅のみ制限
+                    if (size.height > 300) {
+                        chart.canvas.style.maxHeight = '280px';
                     }
                 }
             }
@@ -260,6 +260,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -273,11 +274,16 @@ class ChartManager {
                 },
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
+                },
+                layout: {
+                    padding: 10
                 }
             }
         };
 
         this.charts.set('usersTimeline', new Chart(ctx, config));
+        this.chartConfigs.set('usersTimeline', config);
+    }
         this.chartConfigs.set('usersTimeline', config);
     }
 
@@ -390,6 +396,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 2.5, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -402,6 +409,16 @@ class ChartManager {
                 },
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
+                },
+                layout: {
+                    padding: 10
+                }
+            }
+        };
+
+        this.charts.set('nextcloudHistory', new Chart(ctx, config));
+        this.chartConfigs.set('nextcloudHistory', config);
+    }
                 }
             }
         };
@@ -639,20 +656,27 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: false }
-                },
+                aspectRatio: 3, // より横長にする
                 scales: {
                     x: { display: false },
                     y: { display: false, beginAtZero: true }
                 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                layout: {
+                    padding: 5
+                },
                 elements: {
-                    point: { radius: 0 }
+                    line: {
+                        tension: 0.4
+                    }
                 }
             }
         };
 
+        this.charts.set('networkMini', new Chart(ctx, config));
         this.charts.set('networkMini', new Chart(ctx, config));
         this.chartConfigs.set('networkMini', config);
     }
@@ -729,6 +753,7 @@ class ChartManager {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                aspectRatio: 2.5, // より横長にする
                 scales: {
                     x: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -736,11 +761,15 @@ class ChartManager {
                     },
                     y: { 
                         grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: '#b0b0b0' }
+                        ticks: { color: '#b0b0b0' },
+                        beginAtZero: true
                     }
                 },
                 plugins: {
                     legend: { labels: { color: '#ffffff' } }
+                },
+                layout: {
+                    padding: 10
                 }
             }
         };

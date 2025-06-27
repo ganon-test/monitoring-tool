@@ -164,46 +164,60 @@
             color: #9ca3af;
         }
         
-        /* Chart containers with strict limits */
+        /* Chart containers - 折れ線グラフは横幅いっぱいに */
         .chart-container {
             position: relative;
             width: 100%;
-            height: 250px !important;
-            max-height: 250px !important;
-            min-height: 200px;
-            padding: 10px;
-            box-sizing: border-box;
-            overflow: hidden;
+            height: auto;
+            margin-bottom: 10px;
         }
         
         .chart-container canvas {
             width: 100% !important;
-            height: 100% !important;
-            max-width: 100% !important;
-            max-height: 100% !important;
+            height: auto !important;
         }
         
-        /* Metric card strict restrictions */
-        .metric-card {
-            min-height: 280px !important;
-            max-height: 350px !important;
+        /* 折れ線グラフ専用 - 横幅を最大限に活用 */
+        .line-chart-container {
             position: relative;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            width: 100%;
+            height: 250px;
+            margin-bottom: 15px;
         }
         
-        .metric-card .chart-container,
-        .metric-card .gauge-container {
-            flex: 1;
+        .line-chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 400px;
+        }
+        
+        /* 特定の折れ線グラフIDに対する設定 */
+        #nextcloud-history,
+        #proxmox-history,
+        #cpu-load-chart,
+        #memory-usage-chart,
+        #network-chart,
+        #node-performance-chart {
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 400px;
+        }
+        
+        /* メトリックカード内のチャート - ゲージは制限、折れ線は拡張 */
+        .metric-card canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+        
+        .metric-card .gauge-chart {
+            max-width: 280px !important;
             max-height: 280px !important;
         }
         
-        .metric-card canvas {
+        .metric-card .line-chart {
             width: 100% !important;
-            height: 100% !important;
-            max-width: 300px !important;
-            max-height: 250px !important;
+            min-width: 300px;
+            max-width: none !important;
         }
         
         /* Force container constraints */

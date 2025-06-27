@@ -347,51 +347,38 @@ class DashboardApp {
         canvases.forEach(canvas => {
             const rect = canvas.getBoundingClientRect();
             
-            // より厳しい制限（500px超過で即リセット）
-            if (rect.width > 500 || rect.height > 400) {
-                console.warn(`Canvas ${canvas.id} is too large: ${rect.width}x${rect.height}, emergency reset...`);
-                
-                // 強制的にサイズをリセット
-                canvas.style.width = '300px !important';
-                canvas.style.height = '250px !important';
-                canvas.style.maxWidth = '300px !important';
-                canvas.style.maxHeight = '250px !important';
-                
-                // キャンバス自体のサイズも制限
-                canvas.width = 300;
-                canvas.height = 250;
-                
-                // Chart.jsインスタンスを強制リサイズ
-                if (this.chartManager && this.chartManager.charts) {
-                    this.chartManager.charts.forEach(chart => {
-                        if (chart.canvas === canvas && typeof chart.resize === 'function') {
-                            try {
-                                chart.resize(300, 250);
-                            } catch (error) {
-                                console.error('Error force resizing chart:', error);
-                                // 最後の手段：チャートを破棄して再作成
-                                this.chartManager.charts.forEach((chartInstance, name) => {
-                                    if (chartInstance.canvas === canvas) {
-                                        console.warn(`Destroying and recreating chart: ${name}`);
-                                        this.chartManager.destroyChart(name);
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
-            }
+            // ゲージチャートのみサイズ制限を適用
+            const isGaugeChart = canvas.id.includes('gauge') || 
+                               canvas.id.includes('donut') ||
+                               canvas.id.includes('memory-') ||
+                               canvas.id.includes('storage-');
             
-            // さらに小さい制限も設定
-            if (rect.width > 300 || rect.height > 250) {
-                canvas.style.maxWidth = '300px';
-                canvas.style.maxHeight = '250px';
+            if (isGaugeChart) {
+                // ゲージチャートのサイズ制限
+                if (rect.width > 300 || rect.height > 300) {
+                    console.warn(`Gauge chart ${canvas.id} is too large: ${rect.width}x${rect.height}, resizing...`);
+                    canvas.style.width = '280px !important';
+                    canvas.style.height = '280px !important';
+                    canvas.style.maxWidth = '280px !important';
+                    canvas.style.maxHeight = '280px !important';
+                }
+            } else {
+                // 折れ線グラフは高さのみ制限
+                if (rect.height > 400) {
+                    console.warn(`Line chart ${canvas.id} height too large: ${rect.height}, limiting height...`);
+                    canvas.style.maxHeight = '350px !important';
+                }
+                
+                // 横幅制限を解除（折れ線グラフは横いっぱいに）
+                if (canvas.style.maxWidth && canvas.style.maxWidth !== 'none') {
+                    canvas.style.maxWidth = 'none';
+                }
             }
         });
         
-        // 問題のあるチャートを特定して個別対応
-        const problematicCharts = ['storage-donut-chart', 'memory-gauge', 'cluster-memory-gauge'];
-        problematicCharts.forEach(chartId => {
+        // 問題のあるゲージチャートを特定して個別対応
+        const gaugeCharts = ['storage-donut-chart', 'memory-gauge', 'cluster-memory-gauge', 'cluster-cpu-gauge', 'cluster-storage-gauge'];
+        gaugeCharts.forEach(chartId => {
             const canvas = document.getElementById(chartId);
             if (canvas) {
                 const rect = canvas.getBoundingClientRect();
