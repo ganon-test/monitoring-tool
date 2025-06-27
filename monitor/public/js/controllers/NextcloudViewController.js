@@ -217,6 +217,13 @@ class NextcloudViewController {
         if (ncData.nextcloud && ncData.nextcloud.storage) {
             const numFiles = ncData.nextcloud.storage.num_files;
             this.updateElement('nc-files', this.formatNumber(numFiles));
+
+            // File Distributionチャートを更新
+            const fileDistChart = this.chartManager.getChart('fileDistribution');
+            if (fileDistChart) {
+                fileDistChart.data.datasets[0].data = [numFiles, 0, 0, 0];
+                fileDistChart.update('none');
+            }
         }
     }
 
