@@ -102,6 +102,5 @@ if __name__ == '__main__':
     print('Proxmox:    http://localhost:5000/metrics/proxmox')
     print('Proxmox Detailed:  http://localhost:5000/metrics/proxmox/detailed')
     print('Proxmox History:  http://localhost:5000/metrics/proxmox/history')
-    print(os.environ.get('NEXTCLOUD_PASSWORD', 'No password set.'))
     print('-------------------')
     app.run(host='0.0.0.0', port=5000)
