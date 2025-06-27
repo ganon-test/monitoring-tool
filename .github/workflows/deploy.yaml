@@ -18,22 +18,26 @@ jobs:
           key: ${{ secrets.HOME_SERVER_SSH_KEY }}
           port: 2222
           script: |
-            # 必要ならクローン
-            if [ ! -d ~/MONITORING-API ]; then
-            git clone git@github.com:ganon-test/monitoring-tool.git ~/MONITORING-API
+           # 必要ならクローン
+            if [ ! -d ~/MONITORING-API/.git ]; then
+              rm -rf ~/MONITORING-API
+              git clone git@github.com:ganon-test/monitoring-tool.git ~/MONITORING-API || exit 1
             fi
 
             cd ~/MONITORING-API
-            git pull origin main
+            git pull origin main || exit 1
 
-            # Flask 起動
+            # Flask
             command -v screen >/dev/null 2>&1 || apt install -y screen
             screen -S api -X quit || true
             screen -dmS api python3 main.py
 
-            # Node.js 側
-            cd monitor
-            [ -f package.json ] && npm install
-            screen -S monitor -X quit || true
-            screen -dmS monitor node server.js
+            # Node.js
+            if [ -d monitor ]; then
+              cd monitor
+              [ -f package.json ] && npm install
+              screen -S monitor -X quit || true
+              screen -dmS monitor node server.js
+            fi
+
 
