@@ -1,0 +1,14 @@
+nextcloud:
+  url: "https://yn3143.duckdns.org/"
+  username: "admin"
+  password: "default_password"  
+
+proxmox:
+  - host: "192.168.0.102"
+    username: "root@pam"
+    password: "default_password"  
+    verify_ssl: false
+  - host: "192.168.0.101"
+    username: "root@pam"
+    password: "default_password"  
+    verify_ssl: false

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Advanced Monitoring Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-chart-line"></i>
+                    <h1>Advanced Monitor</h1>
+                </div>
+                <div class="status-indicators">
+                    <div class="status-item" id="nextcloud-status">
+                        <i class="fas fa-cloud"></i>
+                        <span>Nextcloud</span>
+                        <div class="status-dot offline"></div>
+                    </div>
+                    <div class="status-item" id="proxmox-status">
+                        <i class="fas fa-server"></i>
+                        <span>Proxmox</span>
+                        <div class="status-dot offline"></div>
+                    </div>
+                </div>
+                <div class="last-update">
+                    <i class="fas fa-clock"></i>
+                    <span id="last-update-time">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Nextcloud Section -->
+            <section class="section nextcloud-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cloud"></i> Nextcloud Analytics</h2>
+                    <div class="section-controls">
+                        <button class="btn btn-primary" onclick="refreshNextcloud()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <!-- System Overview -->
+                    <div class="metric-card large">
+                        <h3><i class="fas fa-info-circle"></i> System Overview</h3>
+                        <div class="overview-stats">
+                            <div class="stat">
+                                <div class="stat-icon">
+                                    <i class="fas fa-code-branch"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="nc-version">-</div>
+                                    <div class="stat-label">Version</div>
+                                </div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="nc-active-users">-</div>
+                                    <div class="stat-label">Active Users</div>
+                                </div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-icon">
+                                    <i class="fas fa-file"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="nc-files">-</div>
+                                    <div class="stat-label">Total Files</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Memory Usage -->
+                    <div class="metric-card">
+                        <h3><i class="fas fa-memory"></i> Memory Usage</h3>
+                        <div class="gauge-container">
+                            <canvas id="memory-gauge"></canvas>
+                            <div class="gauge-label">
+                                <span id="memory-percent">0%</span>
+                                <small id="memory-details">0 GB / 0 GB</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CPU Load -->
+                    <div class="metric-card">
+                        <h3><i class="fas fa-microchip"></i> CPU Load</h3>
+                        <div class="cpu-metrics">
+                            <div class="cpu-core">
+                                <div class="cpu-label">Load 1m</div>
+                                <div class="cpu-bar">
+                                    <div class="cpu-fill" id="cpu-1m" style="width: 0%"></div>
+                                </div>
+                                <div class="cpu-value" id="cpu-1m-val">0.00</div>
+                            </div>
+                            <div class="cpu-core">
+                                <div class="cpu-label">Load 5m</div>
+                                <div class="cpu-bar">
+                                    <div class="cpu-fill" id="cpu-5m" style="width: 0%"></div>
+                                </div>
+                                <div class="cpu-value" id="cpu-5m-val">0.00</div>
+                            </div>
+                            <div class="cpu-core">
+                                <div class="cpu-label">Load 15m</div>
+                                <div class="cpu-bar">
+                                    <div class="cpu-fill" id="cpu-15m" style="width: 0%"></div>
+                                </div>
+                                <div class="cpu-value" id="cpu-15m-val">0.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Storage -->
+                    <div class="metric-card">
+                        <h3><i class="fas fa-hdd"></i> Storage</h3>
+                        <div class="storage-info">
+                            <div class="storage-bar">
+                                <div class="storage-used" id="storage-used"></div>
+                            </div>
+                            <div class="storage-details">
+                                <span id="storage-free">0 GB</span> free of 
+                                <span id="storage-total">0 GB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historical Chart -->
+                    <div class="metric-card wide">
+                        <h3><i class="fas fa-chart-area"></i> Performance History</h3>
+                        <canvas id="nextcloud-history-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Proxmox Section -->
+            <section class="section proxmox-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-server"></i> Proxmox Cluster</h2>
+                    <div class="section-controls">
+                        <button class="btn btn-primary" onclick="refreshProxmox()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn btn-secondary" onclick="toggleDetailedView()">
+                            <i class="fas fa-eye"></i> <span id="detail-toggle-text">Show Details</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <!-- Cluster Overview -->
+                    <div class="metric-card large">
+                        <h3><i class="fas fa-sitemap"></i> Cluster Overview</h3>
+                        <div id="cluster-nodes" class="cluster-nodes">
+                            <!-- Nodes will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Resources Chart -->
+                    <div class="metric-card wide">
+                        <h3><i class="fas fa-chart-pie"></i> Resource Distribution</h3>
+                        <canvas id="proxmox-resources-chart"></canvas>
+                    </div>
+
+                    <!-- VM Status -->
+                    <div class="metric-card">
+                        <h3><i class="fas fa-desktop"></i> VMs & Containers</h3>
+                        <div id="vm-status" class="vm-status">
+                            <!-- VM status will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Storage Overview -->
+                    <div class="metric-card wide">
+                        <h3><i class="fas fa-hdd"></i> Storage Overview</h3>
+                        <div id="storage-overview" class="storage-overview">
+                            <!-- Storage info will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Detailed Node Information (Initially Hidden) -->
+                    <div class="metric-card extra-wide detailed-section" id="detailed-nodes" style="display: none;">
+                        <h3><i class="fas fa-server"></i> Detailed Node Information</h3>
+                        <div id="detailed-nodes-content" class="detailed-nodes-content">
+                            <!-- Detailed node info will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Detailed VM/Container Information (Initially Hidden) -->
+                    <div class="metric-card extra-wide detailed-section" id="detailed-vms" style="display: none;">
+                        <h3><i class="fas fa-desktop"></i> Detailed VM & Container Information</h3>
+                        <div id="detailed-vms-content" class="detailed-vms-content">
+                            <!-- Detailed VM/container info will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Historical Performance -->
+                    <div class="metric-card wide">
+                        <h3><i class="fas fa-chart-line"></i> Cluster Performance</h3>
+                        <canvas id="proxmox-history-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
