@@ -18,7 +18,7 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5000';
+const API_BASE = process.env.API_BASE || 'http://192.168.0.121:5000';
 
 console.log('API_BASE set to:', API_BASE);
 
