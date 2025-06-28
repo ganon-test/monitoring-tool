@@ -3,29 +3,17 @@
  */
 class NodeManager {
     constructor() {
-        this.nodesOverviewContainer = document.getElementById('nodesOverviewContainer');
         this.nodesDetailContainer = document.getElementById('nodesContainer');
+        this.currentView = 'grid'; // デフォルトはグリッドビュー
     }
 
-    // ノード概要カードの更新
-    updateNodesOverview(nodes) {
-        if (!this.nodesOverviewContainer) return;
-        
-        this.nodesOverviewContainer.innerHTML = '';
-        
-        console.log('📊 ノード概要更新:', nodes.length);
-        
-        nodes.forEach(node => {
-            const overviewCard = this.createNodeOverviewCard(node);
-            this.nodesOverviewContainer.appendChild(overviewCard);
-        });
-    }
-
-    // ノード詳細の更新
+    // ノード詳細の更新（概要機能を統合）
     updateNodesDetail(nodes) {
         if (!this.nodesDetailContainer) return;
         
         this.nodesDetailContainer.innerHTML = '';
+        
+        console.log('📊 ノード詳細更新:', nodes.length);
         
         nodes.forEach(node => {
             const detailCard = this.createNodeDetailCard(node);
@@ -33,104 +21,12 @@ class NodeManager {
         });
     }
 
-    // ノード概要カードの作成
-    createNodeOverviewCard(node) {
-        const card = document.createElement('div');
-        card.className = 'node-overview-card';
-        card.dataset.nodeName = node.name;
-        
-        const statusClass = node.status === 'online' ? 'online' : 'offline';
-        const cpuUsage = node.cpu || 0;
-        const memoryUsage = node.memory_percent || 0;
-        
-        // VM/CT統計（このノードの分のみ）
-        const nodeVMs = (window.dashboard?.lastData?.vms || []).filter(vm => vm.node === node.name);
-        const runningVMs = nodeVMs.filter(vm => vm.status === 'running');
-        
-        card.innerHTML = `
-            <div class="node-overview-header">
-                <div class="node-title">
-                    <i class="fas fa-server"></i>
-                    ${node.name}
-                </div>
-                <div class="status-badge ${statusClass}">${node.status}</div>
-            </div>
-            
-            <div class="node-overview-stats">
-                <div class="overview-stat cpu">
-                    <div class="stat-icon">
-                        <i class="fas fa-microchip"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">CPU</div>
-                        <div class="stat-value">${cpuUsage.toFixed(1)}%</div>
-                        <div class="progress-bar mini">
-                            <div class="progress-fill ${getProgressClass(cpuUsage)}" 
-                                 style="width: ${Math.min(cpuUsage, 100)}%"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="overview-stat memory">
-                    <div class="stat-icon">
-                        <i class="fas fa-memory"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">メモリ</div>
-                        <div class="stat-value">${memoryUsage.toFixed(1)}%</div>
-                        <div class="progress-bar mini">
-                            <div class="progress-fill ${getProgressClass(memoryUsage)}" 
-                                 style="width: ${Math.min(memoryUsage, 100)}%"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="overview-stat vms">
-                    <div class="stat-icon">
-                        <i class="fas fa-desktop"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">VM/CT</div>
-                        <div class="stat-value">${runningVMs.length}/${nodeVMs.length}</div>
-                        <div class="stat-detail">稼働中</div>
-                    </div>
-                </div>
-                
-                <div class="overview-stat uptime">
-                    <div class="stat-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">アップタイム</div>
-                        <div class="stat-value">${formatUptime(node.uptime || 0)}</div>
-                    </div>
-                </div>
-                
-                <div class="overview-stat network">
-                    <div class="stat-icon">
-                        <i class="fas fa-network-wired"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">ネットワーク</div>
-                        <div class="stat-value">${node.network ? formatBytes(node.network.total_rx_bytes + node.network.total_tx_bytes) : 'N/A'}</div>
-                        <div class="stat-detail">${node.network ? `${node.network.interfaces}IF` : '-'}</div>
-                    </div>
-                </div>
-                
-                <div class="overview-stat disk">
-                    <div class="stat-icon">
-                        <i class="fas fa-hdd"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-label">ディスク</div>
-                        <div class="stat-value">${node.disk ? node.disk.usage_percent.toFixed(1) + '%' : 'N/A'}</div>
-                        <div class="stat-detail">${node.disk ? `${node.disk.disks_count}台` : '-'}</div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        return card;
+    // ビュー切り替え
+    toggleView(view) {
+        this.currentView = view;
+        if (this.nodesDetailContainer) {
+            this.nodesDetailContainer.className = `nodes-container ${view}-view`;
+        }
     }
 
     // ノード詳細カードの作成
@@ -261,13 +157,13 @@ class NodeManager {
                             </div>
                             <div class="resource-title">ディスク使用率</div>
                         </div>
-                        ${node.disk ? `
+                        ${node.disk && node.disk.usage_percent !== null && node.disk.usage_percent !== undefined ? `
                             <div class="resource-value">${node.disk.usage_percent.toFixed(1)}%</div>
                             <div class="resource-detail">
                                 <div class="disk-stats">
-                                    <div><i class="fas fa-database"></i> 使用: ${formatBytes(node.disk.total_used)}</div>
-                                    <div><i class="fas fa-hdd"></i> 総容量: ${formatBytes(node.disk.total_size)}</div>
-                                    <div><i class="fas fa-server"></i> ${node.disk.disks_count}台のディスク</div>
+                                    <div><i class="fas fa-database"></i> 使用: ${formatBytes(node.disk.total_used || 0)}</div>
+                                    <div><i class="fas fa-hdd"></i> 総容量: ${formatBytes(node.disk.total_size || 0)}</div>
+                                    <div><i class="fas fa-server"></i> ${node.disk.disks_count || 0}台のディスク</div>
                                 </div>
                             </div>
                             <div class="progress-bar">
@@ -296,12 +192,5 @@ class NodeManager {
         }
         
         return card;
-    }
-
-    // ビュー切り替え
-    toggleView(view) {
-        if (this.nodesOverviewContainer) {
-            this.nodesOverviewContainer.className = `nodes-overview-container ${view}-view`;
-        }
     }
 }

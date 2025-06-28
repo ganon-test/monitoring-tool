@@ -163,8 +163,7 @@ class ProxmoxDashboard {
         // クラスター情報更新
         this.updateClusterInfo(data);
         
-        // ノード情報更新
-        this.nodeManager.updateNodesOverview(data.nodes || []);
+        // ノード詳細情報更新
         this.nodeManager.updateNodesDetail(data.nodes || []);
         
         // VM/CT情報更新

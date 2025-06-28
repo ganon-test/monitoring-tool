@@ -1234,15 +1234,15 @@ body {
 /* ノード詳細カード - リソースグリッド */
 .resource-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--spacing-lg);
-    margin-top: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
 }
 
 .resource-card {
     background: var(--bg-tertiary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
 
@@ -1250,17 +1250,17 @@ body {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .resource-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 14px;
     color: white;
 }
 
@@ -1285,61 +1285,42 @@ body {
 }
 
 .resource-title {
-    font-size: var(--font-size-sm);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
 }
 
 .resource-value {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
+    margin: var(--spacing-xs) 0;
 }
 
-.resource-value.load-values {
-    font-size: var(--font-size-lg);
+.load-values {
     font-family: 'Courier New', monospace;
+    font-size: var(--font-size-sm);
 }
 
-/* ネットワーク統計 */
-.network-stats {
+/* ネットワーク・ディスク統計 */
+.network-stats, .disk-stats {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.network-stats > div {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
+    gap: 4px;
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
 
-.network-stats i {
-    width: 12px;
-    color: var(--text-muted);
-}
-
-/* ディスク統計 */
-.disk-stats {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.disk-stats > div {
+.network-stats div, .disk-stats div {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
 }
 
-.disk-stats i {
+.network-stats i, .disk-stats i {
     width: 12px;
-    color: var(--text-muted);
+    text-align: center;
+    opacity: 0.7;
 }
 
 /* レスポンシブ調整 */
