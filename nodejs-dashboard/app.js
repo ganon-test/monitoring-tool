@@ -153,11 +153,12 @@ class ProxmoxClient {
                             name: nodeName,
                             status: node.status,
                             cpu: (status.cpu || 0) * 100,
+                            maxcpu: status.maxcpu || status.cpuinfo?.cpus || 1,
                             memory_used: memoryUsed,
                             memory_total: memoryTotal,
                             memory_percent: memoryPercent,
                             uptime: status.uptime || 0,
-                            load: status.loadavg || [0, 0, 0],
+                            loadavg: status.loadavg || [0, 0, 0],
                             host: this.host  // どのProxmoxホストからのデータか識別
                         };
                         data.nodes.push(nodeData);
