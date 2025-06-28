@@ -1,4 +1,4 @@
-/**
+d/**
  * Proxmox監視ダッシュボード - メインクラス
  */
 class ProxmoxDashboard {
