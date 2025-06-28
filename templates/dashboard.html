@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Proxmox監視ダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --dark-bg: #1e293b;
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #cbd5e1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ヘッダー */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        /* ステータスバー */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success-color);
+            box-shadow: 0 0 20px var(--success-color);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--danger-color);
+            box-shadow: 0 0 20px var(--danger-color);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, var(--success-color), #059669);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        /* グリッドレイアウト */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .wide-card {
+            grid-column: 1 / -1;
+        }
+
+        /* カード */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-primary);
+        }
+
+        .card i {
+            color: var(--warning-color);
+            font-size: 1.2rem;
+        }
+
+        /* メトリクスグリッド */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .metric:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.05);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(45deg, var(--success-color), #059669);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ノードグリッド */
+        .nodes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .node-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 4px solid var(--success-color);
+            transition: all 0.3s ease;
+        }
+
+        .node-card.offline {
+            border-left-color: var(--danger-color);
+        }
+
+        .node-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .node-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .node-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success-color);
+            box-shadow: 0 0 15px var(--success-color);
+        }
+
+        .node-status.offline {
+            background: var(--danger-color);
+            box-shadow: 0 0 15px var(--danger-color);
+        }
+
+        .node-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .progress-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--warning-color));
+            border-radius: 4px;
+            transition: width 0.8s ease-in-out;
+        }
+
+        /* VM/コンテナリスト */
+        .vm-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .vm-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .vm-item.running {
+            border-left-color: var(--success-color);
+        }
+
+        .vm-item.stopped {
+            border-left-color: var(--danger-color);
+        }
+
+        .vm-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .vm-info h4 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .vm-details {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .vm-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .vm-status.running {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .vm-status.stopped {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        /* チャートコンテナ */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-top: 20px;
+        }
+
+        .chart-container canvas {
+            border-radius: 15px;
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .status-bar {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* スクロールバー */
+        .vm-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .vm-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .vm-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .vm-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* フッター */
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <h1><i class="fas fa-server"></i> Proxmox Dashboard</h1>
+            <p>リアルタイム監視システム</p>
+        </div>
+
+        <!-- ステータスバー -->
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="connection-status"></div>
+                <span>接続状態</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock"></i>
+                <span>最終更新: <span id="last-update">読み込み中...</span></span>
+            </div>
+            <button class="refresh-btn" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i>
+                手動更新
+            </button>
+        </div>
+
+        <!-- ダッシュボードグリッド -->
+        <div class="dashboard-grid">
+            <!-- クラスター概要 -->
+            <div class="card">
+                <h3><i class="fas fa-sitemap"></i> クラスター概要</h3>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-value" id="total-nodes">0</div>
+                        <div class="metric-label">ノード数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="total-vms">0</div>
+                        <div class="metric-label">VM/CT総数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="running-vms">0</div>
+                        <div class="metric-label">稼働中</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="cluster-uptime">99.9%</div>
+                        <div class="metric-label">稼働率</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- リソース使用率 -->
+            <div class="card">
+                <h3><i class="fas fa-chart-pie"></i> リソース使用率</h3>
+                <div class="chart-container">
+                    <canvas id="resource-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- ノード状態 -->
+            <div class="card wide-card">
+                <h3><i class="fas fa-server"></i> ノード状態</h3>
+                <div class="nodes-grid" id="nodes-container">
+                    <!-- ノード情報が動的に挿入 -->
+                </div>
+            </div>
+
+            <!-- VM/コンテナ一覧 -->
+            <div class="card wide-card">
+                <h3><i class="fas fa-cubes"></i> VM・コンテナ</h3>
+                <div class="vm-list" id="vms-container">
+                    <!-- VM情報が動的に挿入 -->
+                </div>
+            </div>
+
+            <!-- パフォーマンス履歴 -->
+            <div class="card wide-card">
+                <h3><i class="fas fa-chart-line"></i> パフォーマンス履歴</h3>
+                <div class="chart-container">
+                    <canvas id="history-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- フッター -->
+        <div class="footer">
+            <p>Proxmox Monitor Dashboard &copy; 2025 | Real-time monitoring system</p>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        const socket = io();
+        let resourceChart = null;
+        let historyChart = null;
+        let latestData = null;
+
+        // WebSocket イベントハンドラー
+        socket.on('connect', () => {
+            console.log('✅ WebSocket接続成功');
+            updateConnectionStatus(true);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('❌ WebSocket接続切断');
+            updateConnectionStatus(false);
+        });
+
+        socket.on('data_update', (data) => {
+            console.log('📊 データ更新受信:', data);
+            latestData = data;
+            updateDashboard(data);
+            updateLastUpdate();
+        });
+
+        // 接続状態更新
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('connection-status');
+            if (connected) {
+                statusDot.classList.remove('offline');
+            } else {
+                statusDot.classList.add('offline');
+            }
+        }
+
+        // ダッシュボード更新
+        function updateDashboard(data) {
+            if (!data || !data.nodes) return;
+
+            // クラスター概要更新
+            document.getElementById('total-nodes').textContent = data.nodes.length;
+            document.getElementById('total-vms').textContent = data.vms ? data.vms.length : 0;
+            
+            const runningVMs = data.vms ? data.vms.filter(vm => vm.status === 'running').length : 0;
+            document.getElementById('running-vms').textContent = runningVMs;
+
+            // ノード表示更新
+            updateNodesDisplay(data.nodes);
+
+            // VM/コンテナ表示更新
+            updateVMsDisplay(data.vms || []);
+
+            // リソースチャート更新
+            updateResourceChart(data);
+        }
+
+        // ノード表示更新
+        function updateNodesDisplay(nodes) {
+            const container = document.getElementById('nodes-container');
+            container.innerHTML = '';
+
+            nodes.forEach(node => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = `node-card ${node.status !== 'online' ? 'offline' : ''}`;
+
+                const cpuPercent = node.cpu.toFixed(1);
+                const memoryPercent = ((node.memory_used / node.memory_total) * 100).toFixed(1);
+
+                nodeDiv.innerHTML = `
+                    <div class="node-header">
+                        <div class="node-name">${node.name}</div>
+                        <div class="node-status ${node.status !== 'online' ? 'offline' : ''}"></div>
+                    </div>
+                    <div class="node-metrics">
+                        <div class="progress-item">
+                            <span>CPU: ${cpuPercent}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${cpuPercent}%"></div>
+                        </div>
+                        <div class="progress-item">
+                            <span>Memory: ${memoryPercent}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${memoryPercent}%"></div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.9em; color: #cbd5e1;">
+                            Uptime: ${formatUptime(node.uptime)}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(nodeDiv);
+            });
+        }
+
+        // VM/コンテナ表示更新
+        function updateVMsDisplay(vms) {
+            const container = document.getElementById('vms-container');
+            container.innerHTML = '';
+
+            if (vms.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #cbd5e1;">VM/コンテナが見つかりません</p>';
+                return;
+            }
+
+            vms.forEach(vm => {
+                const vmDiv = document.createElement('div');
+                vmDiv.className = `vm-item ${vm.status}`;
+
+                vmDiv.innerHTML = `
+                    <div class="vm-info">
+                        <h4>${vm.name}</h4>
+                        <div class="vm-details">
+                            ${vm.type.toUpperCase()} ID: ${vm.id} | Node: ${vm.node}
+                        </div>
+                    </div>
+                    <div class="vm-status ${vm.status}">
+                        ${vm.status}
+                    </div>
+                `;
+
+                container.appendChild(vmDiv);
+            });
+        }
+
+        // リソースチャート更新
+        function updateResourceChart(data) {
+            const ctx = document.getElementById('resource-chart').getContext('2d');
+
+            if (resourceChart) {
+                resourceChart.destroy();
+            }
+
+            const nodes = data.nodes || [];
+            if (nodes.length === 0) return;
+
+            // 平均使用率計算
+            const avgCPU = nodes.reduce((sum, node) => sum + node.cpu, 0) / nodes.length;
+            const avgMemory = nodes.reduce((sum, node) => sum + ((node.memory_used / node.memory_total) * 100), 0) / nodes.length;
+
+            resourceChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU使用率', 'Memory使用率', '空き容量'],
+                    datasets: [{
+                        data: [avgCPU, avgMemory, 100 - ((avgCPU + avgMemory) / 2)],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff',
+                                font: { size: 12 },
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 履歴チャート読み込み
+        async function loadHistoryChart() {
+            try {
+                const response = await fetch('/api/history');
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    updateHistoryChart(result.data);
+                }
+            } catch (error) {
+                console.error('履歴データ取得エラー:', error);
+            }
+        }
+
+        // 履歴チャート更新
+        function updateHistoryChart(historyData) {
+            const ctx = document.getElementById('history-chart').getContext('2d');
+
+            if (historyChart) {
+                historyChart.destroy();
+            }
+
+            const labels = historyData.map(item => {
+                const date = new Date(item.time);
+                return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const cpuData = historyData.map(item => item.cpu);
+            const memoryData = historyData.map(item => item.memory);
+
+            historyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'CPU使用率 (%)',
+                            data: cpuData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Memory使用率 (%)',
+                            data: memoryData,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#ffffff' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#ffffff' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ユーティリティ関数
+        function formatUptime(seconds) {
+            if (!seconds || seconds === 0) return 'N/A';
+
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+
+            if (days > 0) {
+                return `${days}日 ${hours}時間`;
+            } else if (hours > 0) {
+                return `${hours}時間 ${minutes}分`;
+            } else {
+                return `${minutes}分`;
+            }
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = now.toLocaleString('ja-JP');
+        }
+
+        // 手動データ更新
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/status');
+                const result = await response.json();
+
+                if (result.success) {
+                    updateDashboard(result.data);
+                    updateLastUpdate();
+                    console.log('✅ データ手動更新完了');
+                }
+            } catch (error) {
+                console.error('❌ データ更新エラー:', error);
+            }
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 ダッシュボード初期化開始');
+
+            // 初期データ取得
+            refreshData();
+
+            // 履歴チャート読み込み
+            setTimeout(loadHistoryChart, 1000);
+
+            // 定期的な履歴更新（1分ごと）
+            setInterval(loadHistoryChart, 60000);
+
+            console.log('✅ ダッシュボード初期化完了');
+        });
+    </script>
+</body>
+</html>
