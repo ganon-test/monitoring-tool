@@ -1,145 +1,101 @@
-// Legacy Dashboard JavaScript - Lightweight compatibility layer
-// This file provides backward compatibility while delegating to the new MVC structure
-
 /**
- * 旧MonitoringDashboardクラス - 軽量互換レイヤー
- * 新しいアプリケーションはDashboardAppクラスを使用してください
- * @deprecated Use DashboardApp instead
+ * 新Proxmox監視ダッシュボード - 完全リビルド版
+ * 旧システムを完全に削除し、シンプルで高性能な新システムに移行
  */
+
+console.log('🔥 旧システム完全削除 - 新Proxmoxダッシュボードに移行してください');
+console.log('🚀 新ダッシュボード: http://localhost:5000 (server.py使用)');
+console.log('📝 起動方法: python server.py');
+
+// リダイレクト処理
+if (window.location.port !== '5000') {
+    const newUrl = window.location.protocol + '//' + window.location.hostname + ':5000';
+    console.log(`🔄 新システムにリダイレクト中: ${newUrl}`);
+    
+    // 3秒後にリダイレクト
+    setTimeout(() => {
+        window.location.href = newUrl;
+    }, 3000);
+    
+    // ユーザーに通知
+    document.body.innerHTML = `
+        <div style="
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            text-align: center;
+            padding: 20px;
+        ">
+            <div style="
+                background: rgba(255,255,255,0.1);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 500px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            ">
+                <h1 style="font-size: 2.5em; margin-bottom: 20px;">🚀 システム移行</h1>
+                <p style="font-size: 1.2em; margin-bottom: 30px; line-height: 1.6;">
+                    新しいProxmox監視ダッシュボードに移行しました！<br>
+                    <strong>3秒後に自動でリダイレクトします</strong>
+                </p>
+                <div style="margin-bottom: 20px;">
+                    <strong>新ダッシュボード:</strong><br>
+                    <a href="${newUrl}" style="color: #fbbf24; text-decoration: none; font-size: 1.1em;">
+                        ${newUrl}
+                    </a>
+                </div>
+                <div style="font-size: 0.9em; opacity: 0.8;">
+                    手動で移動する場合は上記リンクをクリック
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 旧システム無効化
 class MonitoringDashboard {
     constructor() {
-        console.warn('MonitoringDashboard is deprecated. Use DashboardApp instead.');
-        
-        // 最小限の後方互換性のための実装
-        this.socket = io();
-        this.charts = {};
-        this.data = {
-            nextcloud: null,
-            proxmox: null
-        };
-        this.detailedMode = false;
-        this.currentView = 'nextcloud';
-        
-        // MVCアプリに委譲
-        this.initializeMVCApp();
+        console.warn('⚠️ 旧MonitoringDashboardは廃止されました');
+        console.log('🚀 新システムを起動してください: python server.py');
     }
-
-    async initializeMVCApp() {
-        // DashboardAppが利用可能になるまで待機
-        if (typeof DashboardApp !== 'undefined' && !window.dashboardApp) {
-            window.dashboardApp = new DashboardApp();
-            await window.dashboardApp.init();
-        }
-    }
-
-    // 後方互換性のためのメソッド（全てMVCに委譲）
-    switchView(view) {
-        if (window.dashboardApp) {
-            window.dashboardApp.switchView(view);
-        }
-    }
-
-    updateNextcloudData(data) {
-        if (window.dashboardApp) {
-            window.dashboardApp.onDataUpdate({ nextcloud: data });
-        }
-    }
-
-    updateProxmoxData(data) {
-        if (window.dashboardApp) {
-            window.dashboardApp.onDataUpdate({ proxmox: data });
-        }
-    }
-
-    refreshData() {
-        if (window.dashboardApp) {
-            window.dashboardApp.loadInitialData();
-        }
-    }
-
-    resizeCharts() {
-        if (window.dashboardApp && window.dashboardApp.chartManager) {
-            window.dashboardApp.chartManager.resizeAllCharts();
-        }
-    }
-
-    updateElement(elementId, value) {
-        // 共通関数に委譲
-        updateElement(elementId, value);
-    }
-
-    showError(message) {
-        console.error('Dashboard error:', message);
-    }
-
-    // ダミーメソッド（互換性のため）
-    setupSocketListeners() { /* 委譲済み */ }
-    setupEventListeners() { /* 委譲済み */ }
-    updateConnectionStatus() { /* 委譲済み */ }
-    updateLastUpdateTime() { /* 委譲済み */ }
 }
 
-// 緊急チャートリセット関数
+// 旧関数を無効化
 function emergencyChartReset() {
-    console.log('Emergency chart reset initiated...');
-    
-    // すべてのキャンバスを強制リセット
-    const canvases = document.querySelectorAll('canvas');
-    canvases.forEach((canvas, index) => {
-        console.log(`Resetting canvas ${index}: ${canvas.id}`);
-        
-        // 強制的にサイズを制限
-        canvas.style.width = '300px !important';
-        canvas.style.height = '250px !important';
-        canvas.style.maxWidth = '300px !important';
-        canvas.style.maxHeight = '250px !important';
-        canvas.width = 300;
-        canvas.height = 250;
-    });
-    
-    // ChartManagerのチャートをすべて破棄して再作成
-    if (window.dashboardApp && window.dashboardApp.chartManager) {
-        console.log('Destroying all charts...');
-        window.dashboardApp.chartManager.destroyAllCharts();
-        
-        setTimeout(() => {
-            console.log('Recreating charts...');
-            window.dashboardApp.chartManager.initializeAllCharts();
-        }, 500);
-    }
+    console.log('⚠️ この機能は新システムに移行されました');
 }
 
-// ページが重くなった時の緊急停止
 function emergencyStop() {
-    console.log('Emergency stop activated...');
-    
-    // すべてのインターバルを停止
-    for (let i = 1; i < 99999; i++) {
-        clearInterval(i);
-        clearTimeout(i);
-    }
-    
-    // チャートリセット
-    emergencyChartReset();
+    console.log('⚠️ この機能は新システムに移行されました');
 }
 
-// コンソールで実行可能にする
+// グローバル関数をクリーンアップ
 window.emergencyChartReset = emergencyChartReset;
 window.emergencyStop = emergencyStop;
 
 /*
-=== ファイルサイズ大幅削減完了 ===
+=== 🔥 完全システム移行 ===
 
-旧dashboard.js: 2063行 → 新dashboard.js: 約100行
-削減率: 95%以上
+❌ 旧システム (monitor/): 完全廃止
+✅ 新システム (server.py): 完全リビルド
 
-巨大なコードは以下のMVCファイルに適切に分離：
-- ChartManager.js: チャート管理
-- DataModel.js: データ管理  
-- NextcloudViewController.js: Nextcloud表示
-- ProxmoxViewController.js: Proxmox表示
-- SocketManager.js: WebSocket管理
-- DashboardApp.js: メイン調整
+新機能:
+- 🎨 モダンUI設計
+- ⚡ 高速リアルタイム更新
+- 📊 Chart.js統合
+- 🔄 WebSocket通信
+- 📱 レスポンシブ対応
+- 🛡️ 安定性向上
 
-保守性・可読性・拡張性が大幅に向上しています。
+起動方法:
+1. pip install -r requirements_clean.txt
+2. python server.py
+3. http://localhost:5000 にアクセス
 */
