@@ -145,7 +145,11 @@ class NodeManager {
             if (node.loadavg) {
                 if (Array.isArray(node.loadavg)) {
                     const [load1, load5, load15] = node.loadavg;
-                    loadText = `${(load1 || 0).toFixed(2)} / ${(load5 || 0).toFixed(2)} / ${(load15 || 0).toFixed(2)}`;
+                    // 各値が数値かチェックして安全に処理
+                    const safeLoad1 = (typeof load1 === 'number' && !isNaN(load1)) ? load1 : 0;
+                    const safeLoad5 = (typeof load5 === 'number' && !isNaN(load5)) ? load5 : 0;
+                    const safeLoad15 = (typeof load15 === 'number' && !isNaN(load15)) ? load15 : 0;
+                    loadText = `${safeLoad1.toFixed(2)} / ${safeLoad5.toFixed(2)} / ${safeLoad15.toFixed(2)}`;
                 } else {
                     console.warn(`⚠️ ロードアベレージが配列ではありません: ${node.name}`, node.loadavg);
                 }
