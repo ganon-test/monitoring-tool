@@ -162,13 +162,18 @@ PROXMOX_VERIFY_SSL_2=false
 ```
 nodejs-dashboard/
 ├── app.js              # メインサーバーファイル
-├── package.json        # プロジェクト設定
-├── .env.example       # 環境変数テンプレート
-├── public/            # フロントエンドファイル
-│   ├── index.html     # メインHTML
-│   ├── style.css      # スタイルシート
-│   └── dashboard.js   # JavaScriptロジック
-└── monitoring.db      # SQLiteデータベース（自動生成）
+├── package.json              # プロジェクト設定
+├── .env.example             # 環境変数テンプレート
+├── public/                  # フロントエンドファイル
+│   ├── index.html           # メインHTML
+│   ├── style.css            # スタイルシート
+│   ├── dashboard-main.js    # メインダッシュボードロジック
+│   ├── node-manager.js      # ノード管理クラス
+│   ├── vm-manager.js        # VM/コンテナ管理クラス
+│   ├── chart-manager.js     # チャート管理クラス
+│   ├── utils.js             # ユーティリティ関数
+│   └── favicon.svg          # ファビコン
+└── monitoring.db            # SQLiteデータベース（自動生成）
 ```
 
 ### デバッグ

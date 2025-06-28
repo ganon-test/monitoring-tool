@@ -93,7 +93,11 @@ monitoring-api/
     ├── public/             # フロントエンドファイル
     │   ├── index.html      # メインダッシュボード
     │   ├── style.css       # スタイル
-    │   └── dashboard.js    # フロントエンドロジック
+    │   ├── dashboard-main.js    # メインロジック
+    │   ├── node-manager.js      # ノード管理
+    │   ├── vm-manager.js        # VM/CT管理
+    │   ├── chart-manager.js     # チャート管理
+    │   └── utils.js             # ユーティリティ
     └── README.md           # 詳細ドキュメント
 ```
 
