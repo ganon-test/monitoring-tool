@@ -189,19 +189,19 @@ class VMManager {
         document.getElementById('vmDetailDiskUsage').textContent = `${diskUsage.toFixed(1)}% (${formatBytes(vm.disk || 0)})`;
         document.getElementById('vmDetailDiskMax').textContent = formatBytes(vm.maxdisk || 0);
 
-        // ネットワーク情報（新しいnetioデータを使用）
+        // ネットワーク情報（実データのみ、異常値チェック付き）
         if (vm.netio) {
-            document.getElementById('vmDetailNetOut').textContent = formatBytes(vm.netio.netout) + '/s';
-            document.getElementById('vmDetailNetIn').textContent = formatBytes(vm.netio.netin) + '/s';
+            document.getElementById('vmDetailNetOut').textContent = formatSpeed(vm.netio.netout);
+            document.getElementById('vmDetailNetIn').textContent = formatSpeed(vm.netio.netin);
         } else {
             document.getElementById('vmDetailNetOut').textContent = '--';
             document.getElementById('vmDetailNetIn').textContent = '--';
         }
 
-        // ディスクI/O情報（新しいdiskioデータを使用）
+        // ディスクI/O情報（実データのみ、異常値チェック付き）
         if (vm.diskio) {
-            document.getElementById('vmDetailDiskRead').textContent = formatBytes(vm.diskio.diskread) + '/s';
-            document.getElementById('vmDetailDiskWrite').textContent = formatBytes(vm.diskio.diskwrite) + '/s';
+            document.getElementById('vmDetailDiskRead').textContent = formatSpeed(vm.diskio.diskread);
+            document.getElementById('vmDetailDiskWrite').textContent = formatSpeed(vm.diskio.diskwrite);
         } else {
             document.getElementById('vmDetailDiskRead').textContent = '--';
             document.getElementById('vmDetailDiskWrite').textContent = '--';

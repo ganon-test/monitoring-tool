@@ -195,14 +195,13 @@ class ProxmoxClient {
                             console.log(`⚠️  RRD統計取得失敗 ${nodeName}: ${rrdError.message}`);
                         }
                         
-                        // ネットワーク統計を取得（シンプルで確実な方法）
+                        // ネットワーク統計を取得（実データのみ、ダミーデータ一切なし）
                         let networkData = null;
                         try {
                             console.log(`🔍 ネットワーク統計取得開始 ${nodeName}`);
                             
-                            // 方法1: RRDデータから取得（最も信頼性が高く、実際のトラフィック量を取得可能）
+                            // 方法1: RRDデータから取得（バイト/秒の実際の速度データ）
                             try {
-                                console.log(`🔍 RRDデータ取得試行 ${nodeName}`);
                                 const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
                                     ds: 'netin,netout',
                                     timeframe: 'hour'
@@ -211,69 +210,65 @@ class ProxmoxClient {
                                 if (rrdResponse && rrdResponse.length > 0) {
                                     // 最新のデータポイントを使用
                                     const latest = rrdResponse[rrdResponse.length - 1];
-                                    console.log(`🔍 RRD最新データ ${nodeName}:`, { netin: latest.netin, netout: latest.netout, time: latest.time });
                                     
                                     if (latest && (latest.netin !== null || latest.netout !== null)) {
+                                        // RRDデータはバイト/秒なので、そのまま使用（累積値は計算しない）
                                         const netin = Math.abs(parseFloat(latest.netin) || 0);
                                         const netout = Math.abs(parseFloat(latest.netout) || 0);
                                         
-                                        // RRDデータはバイト/秒なので、累積値として1時間分で概算
-                                        const timeMultiplier = 3600; // 1時間分
-                                        const totalRx = Math.round(netin * timeMultiplier);
-                                        const totalTx = Math.round(netout * timeMultiplier);
-                                        
                                         networkData = {
                                             interfaces: 1,
-                                            total_rx_bytes: totalRx,
-                                            total_tx_bytes: totalTx,
+                                            total_rx_bytes: 0, // 累積値は表示せず、レート情報のみ
+                                            total_tx_bytes: 0,
                                             rx_rate: netin,
                                             tx_rate: netout,
                                             details: [{
                                                 name: 'total',
-                                                rx_bytes: totalRx,
-                                                tx_bytes: totalTx,
+                                                rx_bytes: 0,
+                                                tx_bytes: 0,
                                                 rx_packets: 0,
                                                 tx_packets: 0,
                                                 rx_rate: netin,
                                                 tx_rate: netout
                                             }]
                                         };
-                                        console.log(`🌐 ネットワーク統計(RRD) ${nodeName}: 受信=${(netin / 1024).toFixed(1)}KB/s, 送信=${(netout / 1024).toFixed(1)}KB/s, 累積=${((totalRx + totalTx) / 1024 / 1024).toFixed(1)}MB`);
+                                        console.log(`🌐 ネットワーク統計(RRD) ${nodeName}: 受信=${(netin / 1024).toFixed(1)}KB/s, 送信=${(netout / 1024).toFixed(1)}KB/s`);
                                     }
                                 }
                             } catch (rrdError) {
                                 console.log(`⚠️  RRD取得失敗 ${nodeName}: ${rrdError.message}`);
                             }
                             
-                            // 方法2: ネットワーク設定から推定（RRDが失敗した場合）
+                            // 方法2: ネットワーク設定から情報取得（RRDが失敗した場合のみ）
                             if (!networkData) {
                                 try {
-                                    console.log(`🔍 network設定取得試行 ${nodeName}`);
                                     const networkConfig = await this.apiRequest(`/nodes/${nodeName}/network`);
                                     
                                     if (networkConfig && Array.isArray(networkConfig)) {
-                                        console.log(`🔍 network設定 ${nodeName}:`, networkConfig.map(iface => ({ iface: iface.iface, active: iface.active, type: iface.type })));
-                                        
                                         const activeInterfaces = networkConfig.filter(iface => 
                                             iface.active == 1 && iface.iface && iface.iface !== 'lo'
                                         );
                                         
                                         if (activeInterfaces.length > 0) {
-                                            // 実データのみでネットワーク統計を構築
+                                            // 実際のインターフェース情報のみ、速度データなし
                                             networkData = {
                                                 interfaces: activeInterfaces.length,
                                                 total_rx_bytes: 0,
                                                 total_tx_bytes: 0,
-                                                details: activeInterfaces.map((iface, index) => ({
+                                                rx_rate: 0,
+                                                tx_rate: 0,
+                                                details: activeInterfaces.map(iface => ({
                                                     name: iface.iface,
                                                     rx_bytes: 0,
                                                     tx_bytes: 0,
                                                     rx_packets: 0,
                                                     tx_packets: 0,
+                                                    rx_rate: 0,
+                                                    tx_rate: 0,
                                                     type: iface.type || 'unknown'
                                                 }))
                                             };
-                                            console.log(`🌐 ネットワーク統計(実データなし) ${nodeName}: ${activeInterfaces.length}IF, 統計データ取得できず`);
+                                            console.log(`🌐 ネットワーク統計(設定のみ) ${nodeName}: ${activeInterfaces.length}IF, RRDデータなし`);
                                         }
                                     }
                                 } catch (configError) {
@@ -281,32 +276,36 @@ class ProxmoxClient {
                                 }
                             }
                             
-                            // すべて失敗した場合はデフォルト値
+                            // どちらも失敗した場合は最小限のデフォルト値
                             if (!networkData) {
-                                console.log(`⚠️  ネットワーク統計取得不可 ${nodeName}: デフォルト値を使用`);
+                                console.log(`⚠️  ネットワーク統計取得不可 ${nodeName}: 最小デフォルト値を使用`);
                                 networkData = {
                                     interfaces: 0,
                                     total_rx_bytes: 0,
                                     total_tx_bytes: 0,
+                                    rx_rate: 0,
+                                    tx_rate: 0,
                                     details: []
                                 };
                             }
                         } catch (netError) {
                             console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: ${netError.message}`);
                             
-                            // エラー時もデフォルト値を設定
+                            // エラー時もデフォルト値を設定（ダミーデータなし）
                             networkData = {
                                 interfaces: 0,
                                 total_rx_bytes: 0,
                                 total_tx_bytes: 0,
+                                rx_rate: 0,
+                                tx_rate: 0,
                                 details: []
                             };
                         }
 
-                        // ディスク情報を取得（ストレージ統計を使用）
+                        // ディスク情報を取得（実データのみ、ダミーデータ一切なし）
                         let diskData = null;
                         try {
-                            // まずストレージ情報から使用率を取得
+                            // ストレージ情報から実際の使用率を取得
                             const storage = await this.apiRequest(`/nodes/${nodeName}/storage`);
                             if (storage && storage.length > 0) {
                                 let totalSize = 0;
@@ -314,6 +313,7 @@ class ProxmoxClient {
                                 let localStorages = 0;
                                 
                                 for (const store of storage) {
+                                    // ローカルストレージのみを対象とする
                                     if (store.type === 'dir' || store.type === 'zfspool' || store.type === 'lvm' || store.type === 'lvmthin') {
                                         const size = parseInt(store.total || 0);
                                         const used = parseInt(store.used || 0);
@@ -340,13 +340,15 @@ class ProxmoxClient {
                                             type: store.type
                                         }))
                                     };
+                                    console.log(`💾 ディスク統計(ストレージ) ${nodeName}: 使用率=${diskData.usage_percent.toFixed(1)}%, ストレージ数=${localStorages}`);
                                 }
                             }
                             
-                            // ストレージ情報が取得できない場合はディスクリストを試す
+                            // ストレージ情報が取得できない場合のみディスクリストを試す
                             if (!diskData) {
                                 const diskList = await this.apiRequest(`/nodes/${nodeName}/disks/list`);
                                 if (diskList && diskList.length > 0) {
+                                    // ディスクリストからは使用量がわからないため、基本情報のみ
                                     diskData = {
                                         total_size: 0,
                                         total_used: 0,
@@ -356,15 +358,37 @@ class ProxmoxClient {
                                             device: disk.devpath || disk.device,
                                             model: disk.model || 'Unknown',
                                             size: parseInt(disk.size || 0),
-                                            used: 0, // ディスクリストでは使用量がわからない
+                                            used: 0, // ディスクリストでは使用量不明
                                             usage_percent: 0,
                                             type: disk.type || 'disk'
                                         }))
                                     };
+                                    console.log(`💾 ディスク統計(リストのみ) ${nodeName}: ${diskList.length}台のディスク、使用量不明`);
                                 }
+                            }
+                            
+                            // どちらも失敗した場合はデフォルト値（実データなし）
+                            if (!diskData) {
+                                console.log(`⚠️  ディスク情報取得不可 ${nodeName}: 最小デフォルト値を使用`);
+                                diskData = {
+                                    total_size: 0,
+                                    total_used: 0,
+                                    usage_percent: 0,
+                                    disks_count: 0,
+                                    details: []
+                                };
                             }
                         } catch (diskError) {
                             console.log(`⚠️  ディスク情報取得失敗 ${nodeName}: ${diskError.message}`);
+                            
+                            // エラー時もデフォルト値を設定（ダミーデータなし）
+                            diskData = {
+                                total_size: 0,
+                                total_used: 0,
+                                usage_percent: 0,
+                                disks_count: 0,
+                                details: []
+                            };
                         }
 
                         const nodeData = {
@@ -383,15 +407,23 @@ class ProxmoxClient {
                         };
                         data.nodes.push(nodeData);
                         
-                        // 詳細なログ出力
-                        const networkInfo = networkData ? `ネットワーク: ${(((networkData.total_rx_bytes || 0) + (networkData.total_tx_bytes || 0)) / 1024 / 1024 / 1024).toFixed(2)}GB (${networkData.interfaces}IF)` : 'ネットワーク: N/A';
-                        const diskInfo = diskData ? `ディスク: ${(diskData.usage_percent || 0).toFixed(1)}% (${diskData.disks_count}台)` : 'ディスク: N/A';
+                        // 詳細なログ出力（実データのみ表示）
+                        const networkInfo = networkData ? 
+                            (networkData.rx_rate > 0 || networkData.tx_rate > 0 ? 
+                                `ネットワーク: 受信=${(networkData.rx_rate / 1024).toFixed(1)}KB/s, 送信=${(networkData.tx_rate / 1024).toFixed(1)}KB/s (${networkData.interfaces}IF)` : 
+                                `ネットワーク: ${networkData.interfaces}IF, データなし`) : 
+                            'ネットワーク: N/A';
+                        const diskInfo = diskData ? 
+                            (diskData.usage_percent > 0 ? 
+                                `ディスク: ${diskData.usage_percent.toFixed(1)}% (${diskData.disks_count}台)` : 
+                                `ディスク: ${diskData.disks_count}台, 使用量不明`) : 
+                            'ディスク: N/A';
                         const loadInfo = `ロード: ${loadAvg[0].toFixed(2)}/${loadAvg[1].toFixed(2)}/${loadAvg[2].toFixed(2)}`;
                         
                         console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${loadInfo}, ${networkInfo}, ${diskInfo}`);
                     }
 
-                    // VM一覧
+                    // VM一覧（実データのみ、ダミーデータ一切なし）
                     const vms = await this.apiRequest(`/nodes/${nodeName}/qemu`);
                     if (vms) {
                         for (const vm of vms) {
@@ -405,6 +437,42 @@ class ProxmoxClient {
                                 console.log(`⚠️  VM ${vm.vmid} 詳細取得失敗: ${vmError.message}`);
                             }
 
+                            // ネットワークIOとディスクIOの値を安全に処理（異常な巨大値を防ぐ）
+                            let netio = null;
+                            let diskio = null;
+                            
+                            if (vmDetails) {
+                                // ネットワークIO: バイト/秒として扱う（累積値ではない）
+                                const netin = Math.abs(parseFloat(vmDetails.netin) || 0);
+                                const netout = Math.abs(parseFloat(vmDetails.netout) || 0);
+                                
+                                // 異常に大きい値（1GB/s以上）は除外
+                                if (netin < 1073741824 && netout < 1073741824) {
+                                    netio = {
+                                        netin: netin,
+                                        netout: netout
+                                    };
+                                } else {
+                                    console.log(`⚠️ VM ${vm.vmid} ネットワークIO異常値除外: netin=${(netin/1024/1024).toFixed(1)}MB/s, netout=${(netout/1024/1024).toFixed(1)}MB/s`);
+                                    netio = { netin: 0, netout: 0 };
+                                }
+                                
+                                // ディスクIO: バイト/秒として扱う（累積値ではない）
+                                const diskread = Math.abs(parseFloat(vmDetails.diskread) || 0);
+                                const diskwrite = Math.abs(parseFloat(vmDetails.diskwrite) || 0);
+                                
+                                // 異常に大きい値（1GB/s以上）は除外
+                                if (diskread < 1073741824 && diskwrite < 1073741824) {
+                                    diskio = {
+                                        diskread: diskread,
+                                        diskwrite: diskwrite
+                                    };
+                                } else {
+                                    console.log(`⚠️ VM ${vm.vmid} ディスクIO異常値除外: read=${(diskread/1024/1024).toFixed(1)}MB/s, write=${(diskwrite/1024/1024).toFixed(1)}MB/s`);
+                                    diskio = { diskread: 0, diskwrite: 0 };
+                                }
+                            }
+
                             data.vms.push({
                                 id: vm.vmid,
                                 name: vm.name || `VM-${vm.vmid}`,
@@ -416,14 +484,8 @@ class ProxmoxClient {
                                 memory: vm.mem || 0,
                                 maxmem: vm.maxmem || 0,
                                 uptime: vmDetails?.uptime || 0,
-                                netio: vmDetails ? {
-                                    netin: vmDetails.netin || 0,
-                                    netout: vmDetails.netout || 0
-                                } : null,
-                                diskio: vmDetails ? {
-                                    diskread: vmDetails.diskread || 0,
-                                    diskwrite: vmDetails.diskwrite || 0
-                                } : null,
+                                netio: netio,
+                                diskio: diskio,
                                 pid: vmDetails?.pid || null,
                                 balloon: vmDetails?.balloon || null,
                                 ballooninfo: vmDetails?.ballooninfo || null
@@ -432,7 +494,7 @@ class ProxmoxClient {
                         console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
                     }
 
-                    // コンテナ一覧
+                    // コンテナ一覧（実データのみ、ダミーデータ一切なし）
                     const containers = await this.apiRequest(`/nodes/${nodeName}/lxc`);
                     if (containers) {
                         for (const ct of containers) {
@@ -446,6 +508,42 @@ class ProxmoxClient {
                                 console.log(`⚠️  CT ${ct.vmid} 詳細取得失敗: ${ctError.message}`);
                             }
 
+                            // ネットワークIOとディスクIOの値を安全に処理（異常な巨大値を防ぐ）
+                            let netio = null;
+                            let diskio = null;
+                            
+                            if (ctDetails) {
+                                // ネットワークIO: バイト/秒として扱う（累積値ではない）
+                                const netin = Math.abs(parseFloat(ctDetails.netin) || 0);
+                                const netout = Math.abs(parseFloat(ctDetails.netout) || 0);
+                                
+                                // 異常に大きい値（1GB/s以上）は除外
+                                if (netin < 1073741824 && netout < 1073741824) {
+                                    netio = {
+                                        netin: netin,
+                                        netout: netout
+                                    };
+                                } else {
+                                    console.log(`⚠️ CT ${ct.vmid} ネットワークIO異常値除外: netin=${(netin/1024/1024).toFixed(1)}MB/s, netout=${(netout/1024/1024).toFixed(1)}MB/s`);
+                                    netio = { netin: 0, netout: 0 };
+                                }
+                                
+                                // ディスクIO: バイト/秒として扱う（累積値ではない）
+                                const diskread = Math.abs(parseFloat(ctDetails.diskread) || 0);
+                                const diskwrite = Math.abs(parseFloat(ctDetails.diskwrite) || 0);
+                                
+                                // 異常に大きい値（1GB/s以上）は除外
+                                if (diskread < 1073741824 && diskwrite < 1073741824) {
+                                    diskio = {
+                                        diskread: diskread,
+                                        diskwrite: diskwrite
+                                    };
+                                } else {
+                                    console.log(`⚠️ CT ${ct.vmid} ディスクIO異常値除外: read=${(diskread/1024/1024).toFixed(1)}MB/s, write=${(diskwrite/1024/1024).toFixed(1)}MB/s`);
+                                    diskio = { diskread: 0, diskwrite: 0 };
+                                }
+                            }
+
                             data.vms.push({
                                 id: ct.vmid,
                                 name: ct.name || `CT-${ct.vmid}`,
@@ -457,14 +555,8 @@ class ProxmoxClient {
                                 memory: ct.mem || 0,
                                 maxmem: ct.maxmem || 0,
                                 uptime: ctDetails?.uptime || 0,
-                                netio: ctDetails ? {
-                                    netin: ctDetails.netin || 0,
-                                    netout: ctDetails.netout || 0
-                                } : null,
-                                diskio: ctDetails ? {
-                                    diskread: ctDetails.diskread || 0,
-                                    diskwrite: ctDetails.diskwrite || 0
-                                } : null,
+                                netio: netio,
+                                diskio: diskio,
                                 pid: ctDetails?.pid || null
                             });
                         }

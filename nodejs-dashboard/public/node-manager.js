@@ -136,11 +136,15 @@ class NodeManager {
                             <div class="resource-title">ネットワーク</div>
                         </div>
                         ${node.network ? `
-                            <div class="resource-value">${formatBytes(node.network.total_rx_bytes + node.network.total_tx_bytes)}</div>
+                            <div class="resource-value">
+                                ${node.network.rx_rate || node.network.tx_rate ? 
+                                    formatSpeed((node.network.rx_rate || 0) + (node.network.tx_rate || 0)) : 
+                                    '接続済み'}
+                            </div>
                             <div class="resource-detail">
                                 <div class="network-stats">
-                                    <div><i class="fas fa-download"></i> 受信: ${formatBytes(node.network.total_rx_bytes)}</div>
-                                    <div><i class="fas fa-upload"></i> 送信: ${formatBytes(node.network.total_tx_bytes)}</div>
+                                    <div><i class="fas fa-download"></i> 受信: ${formatSpeed(node.network.rx_rate || 0)}</div>
+                                    <div><i class="fas fa-upload"></i> 送信: ${formatSpeed(node.network.tx_rate || 0)}</div>
                                     <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
                                 </div>
                             </div>
