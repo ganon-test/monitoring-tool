@@ -143,7 +143,234 @@ body {
     gap: var(--spacing-xl);
 }
 
-/* 統合されたクラスター概要セクション */
+/* 統合されたクラスター・ノードリソースセクション */
+.cluster-resources-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.cluster-summary {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border-color);
+    margin-bottom: var(--spacing-xl);
+}
+
+.cluster-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--spacing-md);
+}
+
+.cluster-header h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.cluster-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.stat-card {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--shadow-color);
+}
+
+.stat-card.primary {
+    border-left: 4px solid var(--primary-color);
+}
+
+.stat-card.resource {
+    border-left: 4px solid var(--accent-color);
+}
+
+.stat-card.secondary {
+    border-left: 4px solid var(--success-color);
+}
+
+.stat-card .stat-content {
+    width: 100%;
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.stat-icon.nodes {
+    background: linear-gradient(135deg, var(--primary-color), #667eea);
+}
+
+.stat-icon.vms {
+    background: linear-gradient(135deg, var(--accent-color), #f093fb);
+}
+
+.stat-icon.cpu {
+    background: linear-gradient(135deg, var(--warning-color), #feca57);
+}
+
+.stat-icon.memory {
+    background: linear-gradient(135deg, var(--success-color), #48cab2);
+}
+
+.stat-icon.storage {
+    background: linear-gradient(135deg, var(--info-color), #3c90ff);
+}
+
+.stat-icon.network {
+    background: linear-gradient(135deg, #8b5cf6, #a855f7);
+}
+
+.stat-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-detail {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.stat-trend {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+}
+
+.trend-indicator {
+    color: var(--success-color);
+    font-size: var(--font-size-sm);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.cpu-progress {
+    background: linear-gradient(90deg, var(--warning-color), #feca57);
+}
+
+.memory-progress {
+    background: linear-gradient(90deg, var(--success-color), #48cab2);
+}
+
+.storage-progress {
+    background: linear-gradient(90deg, var(--info-color), #3c90ff);
+}
+
+/* ビューコントロール */
+.view-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.view-toggle {
+    display: flex;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.toggle-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.toggle-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.nodes-resources {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border-color);
+}
+
+.nodes-resources .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--spacing-md);
+}
+
+.nodes-resources .section-header h3 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--spacing-md);
+}
+
+/* 統合されたクラスター概要セクション（既存を調整） */
 .cluster-overview-section {
     margin-bottom: var(--spacing-xl);
 }
@@ -620,6 +847,48 @@ body {
 
 .btn-primary:hover {
     background: var(--primary-dark);
+}
+
+/* ノードコンテナのビュー切り替え */
+.nodes-container.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.nodes-container.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.nodes-container.list-view .node-card {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-md);
+}
+
+.nodes-container.list-view .node-card .node-header {
+    flex: 0 0 200px;
+    margin-bottom: 0;
+}
+
+.nodes-container.list-view .node-card .node-stats {
+    flex: 1;
+    display: flex;
+    gap: var(--spacing-lg);
+    align-items: center;
+}
+
+.nodes-container.list-view .node-card .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.nodes-container.list-view .node-card .progress-container {
+    flex: 0 0 100px;
 }
 
 /* レスポンシブ */

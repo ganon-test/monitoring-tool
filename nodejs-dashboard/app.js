@@ -59,7 +59,7 @@ class ProxmoxClient {
 
             const response = await axios.post(authUrl, authData, {
                 httpsAgent: this.httpsAgent,
-                timeout: 10000
+                timeout: 5000  // 短いタイムアウト
             });
 
             if (response.data && response.data.data) {
@@ -74,9 +74,8 @@ class ProxmoxClient {
         } catch (error) {
             console.error(`❌ Proxmox認証失敗 ${this.host}:`, {
                 message: error.message,
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                data: error.response?.data
+                code: error.code,
+                status: error.response?.status
             });
             return false;
         }
@@ -96,7 +95,7 @@ class ProxmoxClient {
                     'CSRFPreventionToken': this.csrfToken
                 },
                 httpsAgent: this.httpsAgent,
-                timeout: 10000
+                timeout: 8000  // API呼び出し用のタイムアウト
             });
 
             return response.data?.data || null;
@@ -106,8 +105,14 @@ class ProxmoxClient {
                 this.ticket = null;
                 return await this.apiRequest(endpoint);
             }
-            console.error(`API リクエストエラー ${this.host}${endpoint}:`, error.message);
-            return null;
+            
+            // ネットワークエラーやタイムアウトの場合は詳細ログ
+            console.error(`API リクエストエラー ${this.host}${endpoint}:`, {
+                message: error.message,
+                code: error.code,
+                status: error.response?.status
+            });
+            throw error; // エラーを上位に伝播
         }
     }
 
@@ -122,91 +127,100 @@ class ProxmoxClient {
         };
 
         try {
-            // ノード一覧取得
+            // ノード一覧取得（まず接続性を確認）
             const nodes = await this.apiRequest('/nodes');
-            if (!nodes) {
+            if (!nodes || nodes.length === 0) {
+                console.warn(`⚠️ ノード情報が空: ${this.host}`);
                 data.cluster_status = 'offline';
                 return data;
             }
 
+            console.log(`📊 ${nodes.length}個のノードを発見: ${this.host}`);
+
             for (const node of nodes) {
                 const nodeName = node.node;
-                console.log(`📊 ノード処理中: ${nodeName}`);
+                console.log(`📊 ノード処理中: ${nodeName} @ ${this.host}`);
 
-                // ノード詳細情報
-                const status = await this.apiRequest(`/nodes/${nodeName}/status`);
-                if (status) {
-                    const memoryUsed = status.memory?.used || 0;
-                    const memoryTotal = status.memory?.total || 0;
-                    const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0;
-                    
-                    const nodeData = {
-                        name: nodeName,
-                        status: node.status,
-                        cpu: (status.cpu || 0) * 100,
-                        memory_used: memoryUsed,
-                        memory_total: memoryTotal,
-                        memory_percent: memoryPercent,
-                        uptime: status.uptime || 0,
-                        load: status.loadavg || [0, 0, 0],
-                        host: this.host  // どのProxmoxホストからのデータか識別
-                    };
-                    data.nodes.push(nodeData);
-                    
-                    console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB)`);
-                }
-
-                // VM一覧
-                const vms = await this.apiRequest(`/nodes/${nodeName}/qemu`);
-                if (vms) {
-                    for (const vm of vms) {
-                        data.vms.push({
-                            id: vm.vmid,
-                            name: vm.name || `VM-${vm.vmid}`,
-                            status: vm.status,
-                            node: nodeName,
-                            host: this.host,
-                            type: 'vm',
-                            cpu: vm.cpu ? vm.cpu * 100 : 0,
-                            memory: vm.mem || 0,
-                            maxmem: vm.maxmem || 0
-                        });
+                try {
+                    // ノード詳細情報
+                    const status = await this.apiRequest(`/nodes/${nodeName}/status`);
+                    if (status) {
+                        const memoryUsed = status.memory?.used || 0;
+                        const memoryTotal = status.memory?.total || 0;
+                        const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0;
+                        
+                        const nodeData = {
+                            name: nodeName,
+                            status: node.status,
+                            cpu: (status.cpu || 0) * 100,
+                            memory_used: memoryUsed,
+                            memory_total: memoryTotal,
+                            memory_percent: memoryPercent,
+                            uptime: status.uptime || 0,
+                            load: status.loadavg || [0, 0, 0],
+                            host: this.host  // どのProxmoxホストからのデータか識別
+                        };
+                        data.nodes.push(nodeData);
+                        
+                        console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB)`);
                     }
-                    console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
-                }
 
-                // コンテナ一覧
-                const containers = await this.apiRequest(`/nodes/${nodeName}/lxc`);
-                if (containers) {
-                    for (const ct of containers) {
-                        data.vms.push({
-                            id: ct.vmid,
-                            name: ct.name || `CT-${ct.vmid}`,
-                            status: ct.status,
-                            node: nodeName,
-                            host: this.host,
-                            type: 'container',
-                            cpu: ct.cpu ? ct.cpu * 100 : 0,
-                            memory: ct.mem || 0,
-                            maxmem: ct.maxmem || 0
-                        });
+                    // VM一覧
+                    const vms = await this.apiRequest(`/nodes/${nodeName}/qemu`);
+                    if (vms) {
+                        for (const vm of vms) {
+                            data.vms.push({
+                                id: vm.vmid,
+                                name: vm.name || `VM-${vm.vmid}`,
+                                status: vm.status,
+                                node: nodeName,
+                                host: this.host,
+                                type: 'vm',
+                                cpu: vm.cpu ? vm.cpu * 100 : 0,
+                                memory: vm.mem || 0,
+                                maxmem: vm.maxmem || 0
+                            });
+                        }
+                        console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
                     }
-                    console.log(`📦 ${nodeName}: ${containers.length}個のコンテナ`);
-                }
 
-                // ストレージ情報
-                const storage = await this.apiRequest(`/nodes/${nodeName}/storage`);
-                if (storage) {
-                    for (const store of storage) {
-                        data.storage.push({
-                            node: nodeName,
-                            name: store.storage,
-                            type: store.type || 'unknown',
-                            total: store.total || 0,
-                            used: store.used || 0,
-                            available: store.avail || 0
-                        });
+                    // コンテナ一覧
+                    const containers = await this.apiRequest(`/nodes/${nodeName}/lxc`);
+                    if (containers) {
+                        for (const ct of containers) {
+                            data.vms.push({
+                                id: ct.vmid,
+                                name: ct.name || `CT-${ct.vmid}`,
+                                status: ct.status,
+                                node: nodeName,
+                                host: this.host,
+                                type: 'container',
+                                cpu: ct.cpu ? ct.cpu * 100 : 0,
+                                memory: ct.mem || 0,
+                                maxmem: ct.maxmem || 0
+                            });
+                        }
+                        console.log(`📦 ${nodeName}: ${containers.length}個のコンテナ`);
                     }
+
+                    // ストレージ情報
+                    const storage = await this.apiRequest(`/nodes/${nodeName}/storage`);
+                    if (storage) {
+                        for (const store of storage) {
+                            data.storage.push({
+                                node: nodeName,
+                                name: store.storage,
+                                type: store.type || 'unknown',
+                                total: store.total || 0,
+                                used: store.used || 0,
+                                available: store.avail || 0
+                            });
+                        }
+                    }
+                } catch (nodeError) {
+                    console.error(`❌ ノード ${nodeName} のデータ取得エラー:`, nodeError.message);
+                    // 個別ノードのエラーは全体に影響させない
+                    continue;
                 }
             }
 
@@ -216,7 +230,7 @@ class ProxmoxClient {
         } catch (error) {
             console.error(`❌ クラスターデータ取得エラー ${this.host}:`, error.message);
             data.cluster_status = 'offline';
-            return data;
+            throw error; // エラーを上位に伝播してフェイルオーバーを促す
         }
     }
 }
@@ -354,7 +368,7 @@ class ProxmoxMonitor {
                 throw new Error('Proxmoxホスト設定が配列ではありません');
             }
 
-            console.log(`🔧 発見されたProxmoxホスト: ${proxmoxHosts.length}台`);
+            console.log(`🔧 発見されたProxmoxホスト: ${proxmoxHosts.length}台（冗長化構成）`);
 
             for (let i = 0; i < proxmoxHosts.length; i++) {
                 const hostConfig = proxmoxHosts[i];
@@ -368,7 +382,8 @@ class ProxmoxMonitor {
                     continue;
                 }
                 
-                console.log(`🔧 Proxmoxクライアント設定: ${hostConfig.host}:${hostConfig.port || 8006} (user: ${hostConfig.username})`);
+                const priority = i === 0 ? 'プライマリ' : `セカンダリ(${i})`;
+                console.log(`🔧 Proxmoxクライアント設定 [${priority}]: ${hostConfig.host}:${hostConfig.port || 8006} (user: ${hostConfig.username})`);
                 
                 const client = new ProxmoxClient(
                     hostConfig.host,
@@ -379,7 +394,7 @@ class ProxmoxMonitor {
                 this.clients.push(client);
             }
 
-            console.log(`✅ 設定読み込み完了: ${this.clients.length}台のProxmoxサーバー`);
+            console.log(`✅ 冗長化設定完了: ${this.clients.length}台のProxmoxサーバー（優先順位順）`);
         } catch (error) {
             console.error('❌ 設定読み込みエラー:', error.message);
             process.exit(1);
@@ -400,58 +415,56 @@ class ProxmoxMonitor {
                     nodes: [],
                     vms: [],
                     storage: [],
-                    cluster_status: 'online'
+                    cluster_status: 'online',
+                    active_api_host: null
                 };
 
-                // 全Proxmoxサーバーからデータ収集
-                const seenNodes = new Set();
-                const seenVMs = new Set();
+                // 冗長構成：最初に応答するホストからのみデータを取得
+                let dataFetched = false;
+                let lastError = null;
                 
                 for (let i = 0; i < this.clients.length; i++) {
                     const client = this.clients[i];
-                    console.log(`📡 データ収集中 (${i + 1}/${this.clients.length}): ${client.host}`);
+                    console.log(`� API接続試行 (${i + 1}/${this.clients.length}): ${client.host}`);
                     
-                    const data = await client.getClusterData();
-                    if (data) {
-                        // ノードの重複排除（ノード名をキーとして使用）
-                        data.nodes.forEach(node => {
-                            if (!seenNodes.has(node.name)) {
-                                seenNodes.add(node.name);
-                                allData.nodes.push({
-                                    ...node,
-                                    source_host: client.host  // どのホストから取得したかを記録
-                                });
-                            }
-                        });
-                        
-                        // VM/CTの重複排除（VMID + ノード名をキーとして使用）
-                        data.vms.forEach(vm => {
-                            const vmKey = `${vm.node}-${vm.id}`;
-                            if (!seenVMs.has(vmKey)) {
-                                seenVMs.add(vmKey);
-                                allData.vms.push({
-                                    ...vm,
-                                    source_host: client.host
-                                });
-                            }
-                        });
-                        
-                        // ストレージは各ホストごとに個別（重複排除なし）
-                        allData.storage.push(...data.storage.map(storage => ({
-                            ...storage,
-                            source_host: client.host
-                        })));
-                        
-                        console.log(`✅ データ収集完了 (${i + 1}/${this.clients.length}): ${client.host} - ノード:${data.nodes.length}, VM/CT:${data.vms.length}`);
-                    } else {
-                        console.log(`❌ データ収集失敗 (${i + 1}/${this.clients.length}): ${client.host}`);
-                        if (this.clients.length === 1) {
-                            allData.cluster_status = 'offline';
+                    try {
+                        const data = await client.getClusterData();
+                        if (data && data.nodes.length > 0) {
+                            // 成功したホストからデータを取得
+                            allData.nodes = data.nodes.map(node => ({
+                                ...node,
+                                source_host: client.host
+                            }));
+                            allData.vms = data.vms.map(vm => ({
+                                ...vm,
+                                source_host: client.host
+                            }));
+                            allData.storage = data.storage.map(storage => ({
+                                ...storage,
+                                source_host: client.host
+                            }));
+                            allData.active_api_host = client.host;
+                            
+                            console.log(`✅ データ取得成功: ${client.host} - ノード:${data.nodes.length}, VM/CT:${data.vms.length}`);
+                            dataFetched = true;
+                            break; // 成功したら他のホストは試行しない
                         }
+                    } catch (error) {
+                        lastError = error;
+                        console.log(`❌ API接続失敗 (${i + 1}/${this.clients.length}): ${client.host} - ${error.message}`);
+                        continue; // 次のホストを試行
                     }
                 }
                 
-                console.log(`📊 重複排除後の統計 - ユニークノード:${allData.nodes.length}, ユニークVM/CT:${allData.vms.length}, ストレージ:${allData.storage.length}`);
+                if (!dataFetched) {
+                    console.error('❌ 全てのProxmoxホストへの接続に失敗');
+                    allData.cluster_status = 'offline';
+                    if (lastError) {
+                        console.error('最後のエラー:', lastError.message);
+                    }
+                } else {
+                    console.log(`� アクティブAPIホスト: ${allData.active_api_host}`);
+                }
 
                 this.latestData = allData;
                 this.database.saveMetrics(allData);

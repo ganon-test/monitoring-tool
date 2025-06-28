@@ -6,8 +6,8 @@ ProxmoxクラスターとNextcloudインスタンスを監視するモダンなW
 
 - **リアルタイム監視**: WebSocketを使用したライブデータ更新
 - **Proxmox API統合**: 直接Proxmox APIからデータを取得
-- **クラスター対応**: 複数のProxmoxホストからデータを収集・統合
-- **重複排除**: ノード・VM情報の自動重複排除
+- **冗長化API接続**: 複数のProxmoxホストでフェイルオーバー対応
+- **自動フェイルオーバー**: 一つのAPIエンドポイントが失敗時に自動切り替え
 - **統合UI**: クラスター概要とノード詳細を一体化したレイアウト
 - **モダンUI**: Chart.js、レスポンシブデザイン、ダークテーマ
 - **履歴データ**: SQLiteによるデータ保存と履歴表示
@@ -22,7 +22,8 @@ ProxmoxクラスターとNextcloudインスタンスを監視するモダンなW
 - ノード状態（アクティブ/総数）
 - 仮想マシン/コンテナ状態（稼働/総数）
 - 各ノードの詳細リソース情報
-- クラスター接続状況
+- アクティブAPIエンドポイント表示
+- 自動フェイルオーバー状況
 
 ### Nextcloud
 - ステータス監視
@@ -144,14 +145,14 @@ kubectl logs -l app=proxmox-dashboard -f
 
 ### config.yaml
 ```yaml
+# Proxmox冗長構成（優先順位順に設定）
 proxmox:
-  hosts:
-    - host: "proxmox1.local"
-      username: "root@pam"
-      port: 8006
-    - host: "proxmox2.local"  
-      username: "root@pam"
-      port: 8006
+  - host: "proxmox1.local"  # プライマリ
+    username: "root@pam"
+    port: 8006
+  - host: "proxmox2.local"  # セカンダリ（フェイルオーバー用）
+    username: "root@pam"
+    port: 8006
 
 nextcloud:
   url: "https://nextcloud.local"
@@ -170,6 +171,23 @@ PROXMOX_PASSWORD_2=your_proxmox_password_2
 PORT=3000
 NODE_ENV=production
 ```
+
+## 🔄 冗長化とフェイルオーバー
+
+システムは以下の方法で高可用性を実現します：
+
+1. **APIエンドポイント冗長化**: 
+   - 設定ファイルの順序でプライマリ/セカンダリを定義
+   - プライマリが失敗時に自動的にセカンダリに切り替え
+
+2. **自動フェイルオーバー**:
+   - 5秒タイムアウトで接続試行
+   - 失敗時は即座に次のホストを試行
+   - アクティブAPIホストを画面に表示
+
+3. **ヘルスチェック**:
+   - 10秒間隔での定期監視
+   - 各更新サイクルでフェイルオーバー判定
 
 ## 🔧 API エンドポイント
 

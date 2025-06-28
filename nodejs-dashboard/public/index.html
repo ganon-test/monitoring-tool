@@ -32,71 +32,142 @@
 
     <!-- メインコンテンツ -->
     <main class="main-content">
-        <!-- 統合されたクラスター概要とノード詳細セクション -->
-        <section class="cluster-overview-section">
-            <!-- 概要カード -->
-            <div class="overview-cards">
-                <div class="overview-card">
-                    <div class="card-icon cpu">
-                        <i class="fas fa-microchip"></i>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-title">平均CPU使用率</div>
-                        <div class="card-value" id="overallCpuUsage">0%</div>
-                        <div class="card-subtitle">クラスター全体</div>
-                    </div>
-                </div>
-
-                <div class="overview-card">
-                    <div class="card-icon memory">
-                        <i class="fas fa-memory"></i>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-title">総メモリ使用率</div>
-                        <div class="card-value" id="overallMemoryUsage">0%</div>
-                        <div class="card-subtitle">クラスター全体</div>
-                    </div>
-                </div>
-
-                <div class="overview-card">
-                    <div class="card-icon nodes">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-title">アクティブノード</div>
-                        <div class="card-value" id="activeNodes">0</div>
-                        <div class="card-subtitle">/ <span id="totalNodes">0</span> ノード</div>
-                    </div>
-                </div>
-
-                <div class="overview-card">
-                    <div class="card-icon vms">
-                        <i class="fas fa-desktop"></i>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-title">稼働VM/CT</div>
-                        <div class="card-value" id="runningVms">0</div>
-                        <div class="card-subtitle">/ <span id="totalVms">0</span> VM・CT</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ノード詳細 -->
-            <div class="nodes-detail">
-                <div class="section-header">
+        <!-- 統合されたクラスター・ノードリソース概要セクション -->
+        <section class="cluster-resources-section">
+            <!-- クラスター全体概要 -->
+            <div class="cluster-summary">
+                <div class="cluster-header">
                     <h2>
                         <i class="fas fa-server"></i>
-                        Proxmoxクラスターノード詳細
+                        Proxmoxクラスター概要
                     </h2>
                     <div class="cluster-info">
-                        <span class="cluster-hosts">接続先: <span id="clusterHosts">--</span></span>
+                        <span class="cluster-hosts">アクティブAPI: <span id="clusterHosts">--</span></span>
                         <div class="refresh-button" id="refreshNodes">
                             <i class="fas fa-sync-alt"></i>
                             更新
                         </div>
                     </div>
                 </div>
-                <div id="nodesContainer" class="nodes-container">
+                
+                <!-- 統合されたクラスター・リソース統計 -->
+                <div class="cluster-stats">
+                    <div class="stat-card primary">
+                        <div class="stat-icon nodes">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">アクティブノード</div>
+                            <div class="stat-value">
+                                <span id="activeNodes">0</span> / <span id="totalNodes">0</span>
+                            </div>
+                            <div class="stat-trend">
+                                <span class="trend-indicator" id="nodeTrend">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card primary">
+                        <div class="stat-icon vms">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">稼働VM/CT</div>
+                            <div class="stat-value">
+                                <span id="runningVms">0</span> / <span id="totalVms">0</span>
+                            </div>
+                            <div class="stat-detail">
+                                VM: <span id="runningVmsCount">0</span> / CT: <span id="runningCtCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card resource">
+                        <div class="stat-icon cpu">
+                            <i class="fas fa-microchip"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">クラスターCPU</div>
+                            <div class="stat-value" id="overallCpuUsage">0%</div>
+                            <div class="stat-detail">
+                                <span id="cpuCoresUsed">0</span> / <span id="cpuCoresTotal">0</span> コア使用中
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill cpu-progress" id="cpuProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card resource">
+                        <div class="stat-icon memory">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">クラスターメモリ</div>
+                            <div class="stat-value" id="overallMemoryUsage">0%</div>
+                            <div class="stat-detail">
+                                <span id="memoryUsed">0</span> / <span id="memoryTotal">0</span> GB使用中
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill memory-progress" id="memoryProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card secondary">
+                        <div class="stat-icon storage">
+                            <i class="fas fa-hdd"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">総ストレージ</div>
+                            <div class="stat-value" id="overallStorageUsage">0%</div>
+                            <div class="stat-detail">
+                                <span id="storageUsed">0</span> / <span id="storageTotal">0</span> GB使用中
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill storage-progress" id="storageProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card secondary">
+                        <div class="stat-icon network">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-title">平均負荷</div>
+                            <div class="stat-value" id="overallLoadAverage">0.0</div>
+                            <div class="stat-detail">
+                                <span id="loadAverage1m">0.0</span> / <span id="loadAverage5m">0.0</span> / <span id="loadAverage15m">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ノード別詳細リソース -->
+            <div class="nodes-resources">
+                <div class="section-header">
+                    <h3>
+                        <i class="fas fa-chart-bar"></i>
+                        ノード別リソース詳細
+                    </h3>
+                    <div class="view-controls">
+                        <div class="view-toggle" id="viewToggle">
+                            <button class="toggle-btn active" data-view="grid">
+                                <i class="fas fa-th"></i>
+                                グリッド
+                            </button>
+                            <button class="toggle-btn" data-view="list">
+                                <i class="fas fa-list"></i>
+                                リスト
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="nodesContainer" class="nodes-container grid-view">
                     <!-- ノード情報がここに動的に追加されます -->
                 </div>
             </div>
