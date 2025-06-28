@@ -18,19 +18,27 @@ class ProxmoxDashboard {
     async init() {
         console.log('🚀 ダッシュボード初期化開始');
         
-        // Socket.IO接続
-        this.connectSocket();
+        // ローディング表示
+        this.showLoading();
         
-        // イベントリスナー設定
-        this.setupEventListeners();
-        
-        // 初期データ読み込み
-        await this.loadInitialData();
-        
-        // ローディングを隠す
-        this.hideLoading();
-        
-        console.log('✅ ダッシュボード初期化完了');
+        try {
+            // Socket.IO接続
+            this.connectSocket();
+            
+            // イベントリスナー設定
+            this.setupEventListeners();
+            
+            // 初期データ読み込み
+            await this.loadInitialData();
+            
+            console.log('✅ ダッシュボード初期化完了');
+        } catch (error) {
+            console.error('❌ ダッシュボード初期化エラー:', error);
+            this.showError('ダッシュボードの初期化に失敗しました');
+        } finally {
+            // ローディングを隠す
+            this.hideLoading();
+        }
     }
 
     connectSocket() {
@@ -77,8 +85,13 @@ class ProxmoxDashboard {
 
     setupEventListeners() {
         // 更新ボタン
-        document.getElementById('refreshNodes')?.addEventListener('click', () => {
-            this.loadInitialData();
+        document.getElementById('refreshNodes')?.addEventListener('click', async () => {
+            this.showLoading();
+            try {
+                await this.loadInitialData();
+            } finally {
+                this.hideLoading();
+            }
         });
 
         // VMフィルター
@@ -174,16 +187,43 @@ class ProxmoxDashboard {
     }
 
     showLoading() {
-        // ローディング表示の実装（必要に応じて）
+        showLoading();
     }
 
     hideLoading() {
-        // ローディング非表示の実装（必要に応じて）
+        hideLoading();
     }
 
     showError(message) {
         console.error('🚨 エラー表示:', message);
-        // エラーモーダルの実装（必要に応じて）
+        
+        const errorModal = document.getElementById('errorModal');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        if (errorMessage) {
+            errorMessage.textContent = message;
+        }
+        
+        if (errorModal) {
+            errorModal.classList.add('show');
+        }
+        
+        // モーダルを閉じるイベント
+        const closeModal = () => {
+            if (errorModal) {
+                errorModal.classList.remove('show');
+            }
+        };
+        
+        document.getElementById('errorModalClose')?.addEventListener('click', closeModal);
+        document.getElementById('errorModalOk')?.addEventListener('click', closeModal);
+        
+        // 背景クリックで閉じる
+        errorModal?.addEventListener('click', (e) => {
+            if (e.target === errorModal) {
+                closeModal();
+            }
+        });
     }
 }
 
