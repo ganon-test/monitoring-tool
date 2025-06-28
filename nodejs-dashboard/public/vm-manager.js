@@ -226,10 +226,23 @@ class VMManager {
     }
 
     // VM詳細情報を更新
-    refreshVMDetail() {
+    async refreshVMDetail() {
         if (this.selectedVMId && window.dashboard) {
-            // 最新データを取得してモーダルを更新
-            window.dashboard.fetchData();
+            try {
+                // ローディング表示
+                window.dashboard.showLoading();
+                
+                // 最新データを取得してモーダルを更新
+                await window.dashboard.loadInitialData();
+                
+                console.log('🔄 VM詳細情報更新完了');
+            } catch (error) {
+                console.error('❌ VM詳細情報更新エラー:', error);
+                window.dashboard.showError('VM詳細情報の更新に失敗しました');
+            } finally {
+                // ローディング非表示
+                window.dashboard.hideLoading();
+            }
         }
     }
 

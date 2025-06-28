@@ -81,14 +81,21 @@ class ProxmoxClient {
         }
     }
 
-    async apiRequest(endpoint) {
+    async apiRequest(endpoint, params = null) {
         if (!this.ticket) {
             const authSuccess = await this.authenticate();
             if (!authSuccess) return null;
         }
 
         try {
-            const url = `https://${this.host}:8006/api2/json${endpoint}`;
+            let url = `https://${this.host}:8006/api2/json${endpoint}`;
+            
+            // クエリパラメータがある場合は追加
+            if (params && typeof params === 'object') {
+                const queryString = new URLSearchParams(params).toString();
+                url += `?${queryString}`;
+            }
+            
             const response = await axios.get(url, {
                 headers: {
                     'Cookie': `PVEAuthCookie=${this.ticket}`,
@@ -178,59 +185,117 @@ class ProxmoxClient {
                             console.log(`⚠️  RRD統計取得失敗 ${nodeName}: ${rrdError.message}`);
                         }
                         
-                        // ネットワーク統計を取得（proc/net/devから）
+                        // ネットワーク統計を取得
                         let networkData = null;
                         try {
-                            // まず /proc/net/dev を試す
-                            const netDev = await this.apiRequest(`/nodes/${nodeName}/status`, { path: '/proc/net/dev' });
-                            if (netDev) {
-                                // /proc/net/devが取得できない場合はrrddata APIを使用
-                                const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
-                                    ds: 'netin,netout',
-                                    timeframe: 'hour'
-                                });
+                            // 方法1: RRDデータから取得（最も信頼性が高い）
+                            const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
+                                ds: 'netin,netout',
+                                timeframe: 'hour'
+                            });
+                            
+                            if (rrdResponse && rrdResponse.length > 0) {
+                                // 最新の数個のデータポイントから平均を取る
+                                const recentData = rrdResponse.slice(-5); // 最新5つのデータポイント
+                                let avgNetin = 0;
+                                let avgNetout = 0;
+                                let validCount = 0;
                                 
-                                if (rrdResponse && rrdResponse.length > 0) {
-                                    const latest = rrdResponse[rrdResponse.length - 1];
+                                for (const data of recentData) {
+                                    if (data.netin !== null && data.netout !== null) {
+                                        avgNetin += parseFloat(data.netin) || 0;
+                                        avgNetout += parseFloat(data.netout) || 0;
+                                        validCount++;
+                                    }
+                                }
+                                
+                                if (validCount > 0) {
+                                    avgNetin = avgNetin / validCount;
+                                    avgNetout = avgNetout / validCount;
+                                    
+                                    // RRDデータはバイト/秒なので、累積バイト数として表示するため適当な倍数を掛ける
+                                    const timeMultiplier = 3600; // 1時間分として概算
+                                    const totalRx = Math.round(avgNetin * timeMultiplier);
+                                    const totalTx = Math.round(avgNetout * timeMultiplier);
+                                    
                                     networkData = {
-                                        interfaces: 1, // RRDからは総計のみ
-                                        total_rx_bytes: parseInt(latest.netin || 0),
-                                        total_tx_bytes: parseInt(latest.netout || 0),
+                                        interfaces: 1,
+                                        total_rx_bytes: totalRx,
+                                        total_tx_bytes: totalTx,
+                                        rx_rate: avgNetin, // バイト/秒
+                                        tx_rate: avgNetout, // バイト/秒
                                         details: [{
                                             name: 'total',
-                                            rx_bytes: parseInt(latest.netin || 0),
-                                            tx_bytes: parseInt(latest.netout || 0),
+                                            rx_bytes: totalRx,
+                                            tx_bytes: totalTx,
                                             rx_packets: 0,
                                             tx_packets: 0
                                         }]
                                     };
+                                    console.log(`🌐 ネットワーク統計(RRD) ${nodeName}: 受信=${(avgNetin / 1024).toFixed(1)}KB/s, 送信=${(avgNetout / 1024).toFixed(1)}KB/s`);
                                 }
-                            } else {
-                                // 従来のnetstatを試す
+                            }
+                            
+                            // RRDが失敗した場合は netstat APIを試す
+                            if (!networkData) {
                                 const netstat = await this.apiRequest(`/nodes/${nodeName}/netstat`);
-                                if (netstat && netstat.length > 0) {
+                                if (netstat && Array.isArray(netstat) && netstat.length > 0) {
                                     let totalRxBytes = 0;
                                     let totalTxBytes = 0;
+                                    const validInterfaces = [];
+                                    
                                     for (const iface of netstat) {
-                                        totalRxBytes += parseInt(iface.receive || 0);
-                                        totalTxBytes += parseInt(iface.transmit || 0);
+                                        // loopbackインターフェースは除外
+                                        const ifaceName = iface.iface || iface.device || iface.name || '';
+                                        if (ifaceName === 'lo' || ifaceName === 'localhost') continue;
+                                        
+                                        // 様々な可能性のあるフィールド名をチェック
+                                        const rxBytes = parseInt(iface.receive || iface.receive_bytes || iface.rx_bytes || 0);
+                                        const txBytes = parseInt(iface.transmit || iface.transmit_bytes || iface.tx_bytes || 0);
+                                        
+                                        totalRxBytes += rxBytes;
+                                        totalTxBytes += txBytes;
+                                        
+                                        if (rxBytes > 0 || txBytes > 0) {
+                                            validInterfaces.push({
+                                                name: ifaceName,
+                                                rx_bytes: rxBytes,
+                                                tx_bytes: txBytes,
+                                                rx_packets: parseInt(iface.receive_packets || iface.rx_packets || 0),
+                                                tx_packets: parseInt(iface.transmit_packets || iface.tx_packets || 0)
+                                            });
+                                        }
                                     }
+                                    
                                     networkData = {
-                                        interfaces: netstat.length,
+                                        interfaces: validInterfaces.length,
                                         total_rx_bytes: totalRxBytes,
                                         total_tx_bytes: totalTxBytes,
-                                        details: netstat.map(iface => ({
-                                            name: iface.iface || iface.device,
-                                            rx_bytes: parseInt(iface.receive || 0),
-                                            tx_bytes: parseInt(iface.transmit || 0),
-                                            rx_packets: parseInt(iface.receive_packets || 0),
-                                            tx_packets: parseInt(iface.transmit_packets || 0)
-                                        }))
+                                        details: validInterfaces
                                     };
+                                    console.log(`🌐 ネットワーク統計(netstat) ${nodeName}: ${validInterfaces.length}IF, 受信=${(totalRxBytes / 1024 / 1024).toFixed(1)}MB, 送信=${(totalTxBytes / 1024 / 1024).toFixed(1)}MB`);
                                 }
+                            }
+                            
+                            // 両方とも失敗した場合は基本情報のみ
+                            if (!networkData) {
+                                networkData = {
+                                    interfaces: 0,
+                                    total_rx_bytes: 0,
+                                    total_tx_bytes: 0,
+                                    details: []
+                                };
+                                console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: データなし`);
                             }
                         } catch (netError) {
                             console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: ${netError.message}`);
+                            // エラー時もデフォルト値を設定
+                            networkData = {
+                                interfaces: 0,
+                                total_rx_bytes: 0,
+                                total_tx_bytes: 0,
+                                details: []
+                            };
                         }
 
                         // ディスク情報を取得（ストレージ統計を使用）
