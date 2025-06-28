@@ -1131,7 +1131,99 @@ body {
     margin-bottom: 4px;
 }
 
-/* レスポンシブ */
+/* VM詳細モーダル */
+.vm-detail-modal .modal-content {
+    max-width: 900px;
+    width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.vm-detail-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.vm-detail-info {
+    padding: var(--spacing-lg);
+}
+
+.vm-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-xl);
+}
+
+.vm-detail-section {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.vm-detail-section h4 {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.vm-detail-section h4 i {
+    color: var(--primary-color);
+    font-size: var(--font-size-base);
+}
+
+.vm-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.vm-detail-item:last-child {
+    border-bottom: none;
+}
+
+.vm-detail-item .label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+}
+
+.vm-detail-item .value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+/* VM/CTカードの選択状態 */
+.vm-card.selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+
+.vm-card:hover {
+    cursor: pointer;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
+}
+
+/* モーダルフッターのボタン */
+.vm-detail-modal .modal-footer {
+    gap: var(--spacing-md);
+}
+
+.vm-detail-modal .btn {
+    min-width: 100px;
+}
+
+/* レスポンシブ対応 */
 @media (max-width: 768px) {
     .header-content {
         padding: var(--spacing-sm) var(--spacing-md);
@@ -1164,6 +1256,20 @@ body {
     
     .vm-filters {
         justify-content: center;
+    }
+    
+    .vm-detail-modal .modal-content {
+        width: 95vw;
+        max-height: 95vh;
+    }
+    
+    .vm-detail-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+    
+    .vm-detail-section {
+        padding: var(--spacing-md);
     }
 }
 

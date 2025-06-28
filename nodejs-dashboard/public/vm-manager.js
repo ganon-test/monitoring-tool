@@ -5,6 +5,37 @@ class VMManager {
     constructor() {
         this.vmsContainer = document.getElementById('vmsContainer');
         this.currentFilter = 'all';
+        this.selectedVMId = null;
+        this.vmData = new Map(); // VM詳細データを保存
+        this.initEventListeners();
+    }
+
+    // イベントリスナーの初期化
+    initEventListeners() {
+        // VM詳細モーダルのイベント
+        const vmDetailModal = document.getElementById('vmDetailModal');
+        const vmDetailModalClose = document.getElementById('vmDetailModalClose');
+        const vmDetailClose = document.getElementById('vmDetailClose');
+        const vmDetailRefresh = document.getElementById('vmDetailRefresh');
+
+        if (vmDetailModalClose) {
+            vmDetailModalClose.addEventListener('click', () => this.closeVMDetail());
+        }
+        if (vmDetailClose) {
+            vmDetailClose.addEventListener('click', () => this.closeVMDetail());
+        }
+        if (vmDetailRefresh) {
+            vmDetailRefresh.addEventListener('click', () => this.refreshVMDetail());
+        }
+
+        // モーダル外クリックで閉じる
+        if (vmDetailModal) {
+            vmDetailModal.addEventListener('click', (e) => {
+                if (e.target === vmDetailModal) {
+                    this.closeVMDetail();
+                }
+            });
+        }
     }
 
     // VM/CT情報の更新
@@ -14,6 +45,11 @@ class VMManager {
         this.vmsContainer.innerHTML = '';
         
         console.log('🖥️ VM/CT更新:', vms.length);
+        
+        // VM詳細データを保存
+        vms.forEach(vm => {
+            this.vmData.set(vm.id, vm);
+        });
         
         const filteredVMs = this.filterVMs(vms, this.currentFilter);
         
@@ -29,6 +65,9 @@ class VMManager {
         card.className = 'vm-card';
         card.dataset.vmId = vm.id;
         card.dataset.status = vm.status;
+        
+        // クリックイベントを追加
+        card.addEventListener('click', () => this.showVMDetail(vm.id));
         
         const statusClass = vm.status === 'running' ? 'running' : 'stopped';
         const typeIcon = vm.type === 'container' ? 'fa-cube' : 'fa-desktop';
@@ -114,5 +153,83 @@ class VMManager {
             const allVMs = window.dashboard.lastData.vms || [];
             this.updateVMs(allVMs);
         }
+    }
+
+    // VM詳細表示
+    showVMDetail(vmId) {
+        const vm = this.vmData.get(vmId);
+        if (!vm) return;
+
+        this.selectedVMId = vmId;
+        
+        // モーダルのタイトル更新
+        const title = document.getElementById('vmDetailTitle');
+        const typeIcon = vm.type === 'container' ? 'fa-cube' : 'fa-desktop';
+        const typeLabel = vm.type === 'container' ? 'CT' : 'VM';
+        title.innerHTML = `<i class="fas ${typeIcon}"></i> ${typeLabel} ${vm.name} 詳細情報`;
+
+        // 基本情報
+        document.getElementById('vmDetailId').textContent = vm.id;
+        document.getElementById('vmDetailName').textContent = vm.name;
+        document.getElementById('vmDetailType').textContent = typeLabel;
+        document.getElementById('vmDetailNode').textContent = vm.node;
+        document.getElementById('vmDetailStatus').textContent = vm.status;
+        document.getElementById('vmDetailUptime').textContent = vm.uptime ? formatUptime(vm.uptime) : '--';
+
+        // リソース情報
+        const cpuUsage = vm.cpu || 0;
+        const memoryUsage = vm.maxmem > 0 ? (vm.memory / vm.maxmem * 100) : 0;
+        
+        document.getElementById('vmDetailCpuUsage').textContent = `${cpuUsage.toFixed(1)}%`;
+        document.getElementById('vmDetailCpuCores').textContent = vm.cpus || '--';
+        document.getElementById('vmDetailMemUsage').textContent = `${memoryUsage.toFixed(1)}% (${formatBytes(vm.memory)})`;
+        document.getElementById('vmDetailMemMax').textContent = formatBytes(vm.maxmem);
+        
+        const diskUsage = vm.maxdisk > 0 ? (vm.disk / vm.maxdisk * 100) : 0;
+        document.getElementById('vmDetailDiskUsage').textContent = `${diskUsage.toFixed(1)}% (${formatBytes(vm.disk)})`;
+        document.getElementById('vmDetailDiskMax').textContent = formatBytes(vm.maxdisk);
+
+        // ネットワーク情報
+        document.getElementById('vmDetailNetOut').textContent = vm.netout ? formatBytes(vm.netout) + '/s' : '--';
+        document.getElementById('vmDetailNetIn').textContent = vm.netin ? formatBytes(vm.netin) + '/s' : '--';
+
+        // ディスクI/O情報
+        document.getElementById('vmDetailDiskRead').textContent = vm.diskread ? formatBytes(vm.diskread) + '/s' : '--';
+        document.getElementById('vmDetailDiskWrite').textContent = vm.diskwrite ? formatBytes(vm.diskwrite) + '/s' : '--';
+
+        // カードの選択状態を更新
+        this.updateCardSelection(vmId);
+
+        // モーダルを表示
+        const modal = document.getElementById('vmDetailModal');
+        modal.classList.add('show');
+    }
+
+    // VM詳細モーダルを閉じる
+    closeVMDetail() {
+        const modal = document.getElementById('vmDetailModal');
+        modal.classList.remove('show');
+        this.selectedVMId = null;
+        
+        // カード選択状態をクリア
+        this.updateCardSelection(null);
+    }
+
+    // VM詳細情報を更新
+    refreshVMDetail() {
+        if (this.selectedVMId && window.dashboard) {
+            // 最新データを取得してモーダルを更新
+            window.dashboard.fetchData();
+        }
+    }
+
+    // カード選択状態の更新
+    updateCardSelection(selectedId) {
+        document.querySelectorAll('.vm-card').forEach(card => {
+            card.classList.remove('selected');
+            if (selectedId && card.dataset.vmId === selectedId) {
+                card.classList.add('selected');
+            }
+        });
     }
 }

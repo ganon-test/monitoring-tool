@@ -170,6 +170,14 @@ class ProxmoxDashboard {
         // VM/CT情報更新
         this.vmManager.updateVMs(data.vms || []);
         
+        // 選択されたVMの詳細モーダルが開いている場合は更新
+        if (this.vmManager.selectedVMId) {
+            const selectedVM = (data.vms || []).find(vm => vm.id === this.vmManager.selectedVMId);
+            if (selectedVM) {
+                this.vmManager.showVMDetail(selectedVM.id);
+            }
+        }
+        
         console.log('✅ ダッシュボード更新完了');
     }
 
