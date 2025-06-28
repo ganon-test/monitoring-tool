@@ -944,7 +944,7 @@ body {
 
 .node-overview-stats {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-md);
 }
 
@@ -982,6 +982,14 @@ body {
 
 .overview-stat.uptime .stat-icon {
     background: linear-gradient(135deg, var(--info-color), #3c90ff);
+}
+
+.overview-stat.network .stat-icon {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.overview-stat.disk .stat-icon {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
 }
 
 .overview-stat .stat-info {
@@ -1221,6 +1229,129 @@ body {
 
 .vm-detail-modal .btn {
     min-width: 100px;
+}
+
+/* ノード詳細カード - リソースグリッド */
+.resource-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.resource-card {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-color);
+}
+
+.resource-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.resource-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+}
+
+.resource-card.cpu .resource-icon {
+    background: linear-gradient(135deg, var(--warning-color), #feca57);
+}
+
+.resource-card.memory .resource-icon {
+    background: linear-gradient(135deg, var(--success-color), #48cab2);
+}
+
+.resource-card.load .resource-icon {
+    background: linear-gradient(135deg, var(--info-color), #3c90ff);
+}
+
+.resource-card.network .resource-icon {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.resource-card.disk .resource-icon {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.resource-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.resource-value {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.resource-value.load-values {
+    font-size: var(--font-size-lg);
+    font-family: 'Courier New', monospace;
+}
+
+/* ネットワーク統計 */
+.network-stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.network-stats > div {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.network-stats i {
+    width: 12px;
+    color: var(--text-muted);
+}
+
+/* ディスク統計 */
+.disk-stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.disk-stats > div {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.disk-stats i {
+    width: 12px;
+    color: var(--text-muted);
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 768px) {
+    .node-overview-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .resource-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
 }
 
 /* レスポンシブ対応 */

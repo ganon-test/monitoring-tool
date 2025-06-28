@@ -149,6 +149,74 @@ class ProxmoxClient {
                         const memoryTotal = status.memory?.total || 0;
                         const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0;
                         
+                        // ネットワーク統計を取得
+                        let networkData = null;
+                        try {
+                            const netstat = await this.apiRequest(`/nodes/${nodeName}/netstat`);
+                            if (netstat && netstat.length > 0) {
+                                // 全インターフェースの合計値を計算
+                                let totalRxBytes = 0;
+                                let totalTxBytes = 0;
+                                for (const iface of netstat) {
+                                    totalRxBytes += parseInt(iface.receive_bytes || 0);
+                                    totalTxBytes += parseInt(iface.transmit_bytes || 0);
+                                }
+                                networkData = {
+                                    interfaces: netstat.length,
+                                    total_rx_bytes: totalRxBytes,
+                                    total_tx_bytes: totalTxBytes,
+                                    details: netstat.map(iface => ({
+                                        name: iface.device,
+                                        rx_bytes: parseInt(iface.receive_bytes || 0),
+                                        tx_bytes: parseInt(iface.transmit_bytes || 0),
+                                        rx_packets: parseInt(iface.receive_packets || 0),
+                                        tx_packets: parseInt(iface.transmit_packets || 0)
+                                    }))
+                                };
+                            }
+                        } catch (netError) {
+                            console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: ${netError.message}`);
+                        }
+
+                        // ディスク情報を取得
+                        let diskData = null;
+                        try {
+                            const diskList = await this.apiRequest(`/nodes/${nodeName}/disks/list`);
+                            if (diskList && diskList.length > 0) {
+                                let totalSize = 0;
+                                let totalUsed = 0;
+                                const diskDetails = [];
+                                
+                                for (const disk of diskList) {
+                                    const size = parseInt(disk.size || 0);
+                                    const used = parseInt(disk.used || 0);
+                                    totalSize += size;
+                                    totalUsed += used;
+                                    
+                                    if (size > 0) {
+                                        diskDetails.push({
+                                            device: disk.devpath || disk.device,
+                                            model: disk.model || 'Unknown',
+                                            size: size,
+                                            used: used,
+                                            usage_percent: used > 0 ? (used / size) * 100 : 0,
+                                            type: disk.type || 'disk'
+                                        });
+                                    }
+                                }
+                                
+                                diskData = {
+                                    total_size: totalSize,
+                                    total_used: totalUsed,
+                                    usage_percent: totalSize > 0 ? (totalUsed / totalSize) * 100 : 0,
+                                    disks_count: diskDetails.length,
+                                    details: diskDetails
+                                };
+                            }
+                        } catch (diskError) {
+                            console.log(`⚠️  ディスク情報取得失敗 ${nodeName}: ${diskError.message}`);
+                        }
+
                         const nodeData = {
                             name: nodeName,
                             status: node.status,
@@ -159,11 +227,17 @@ class ProxmoxClient {
                             memory_percent: memoryPercent,
                             uptime: status.uptime || 0,
                             loadavg: status.loadavg || [0, 0, 0],
+                            network: networkData,
+                            disk: diskData,
                             host: this.host  // どのProxmoxホストからのデータか識別
                         };
                         data.nodes.push(nodeData);
                         
-                        console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB)`);
+                        // 詳細なログ出力
+                        const networkInfo = networkData ? `ネットワーク: ${((networkData.total_rx_bytes + networkData.total_tx_bytes) / 1024 / 1024 / 1024).toFixed(2)}GB (${networkData.interfaces}IF)` : 'ネットワーク: N/A';
+                        const diskInfo = diskData ? `ディスク: ${diskData.usage_percent.toFixed(1)}% (${diskData.disks_count}台)` : 'ディスク: N/A';
+                        
+                        console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${networkInfo}, ${diskInfo}`);
                     }
 
                     // VM一覧

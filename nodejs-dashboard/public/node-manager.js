@@ -105,6 +105,28 @@ class NodeManager {
                         <div class="stat-value">${formatUptime(node.uptime || 0)}</div>
                     </div>
                 </div>
+                
+                <div class="overview-stat network">
+                    <div class="stat-icon">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-label">ネットワーク</div>
+                        <div class="stat-value">${node.network ? formatBytes(node.network.total_rx_bytes + node.network.total_tx_bytes) : 'N/A'}</div>
+                        <div class="stat-detail">${node.network ? `${node.network.interfaces}IF` : '-'}</div>
+                    </div>
+                </div>
+                
+                <div class="overview-stat disk">
+                    <div class="stat-icon">
+                        <i class="fas fa-hdd"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-label">ディスク</div>
+                        <div class="stat-value">${node.disk ? node.disk.usage_percent.toFixed(1) + '%' : 'N/A'}</div>
+                        <div class="stat-detail">${node.disk ? `${node.disk.disks_count}台` : '-'}</div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -208,6 +230,54 @@ class NodeManager {
                         </div>
                         <div class="resource-value load-values">${loadText}</div>
                         <div class="resource-detail">1分 / 5分 / 15分</div>
+                    </div>
+                    
+                    <div class="resource-card network">
+                        <div class="resource-header">
+                            <div class="resource-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <div class="resource-title">ネットワーク</div>
+                        </div>
+                        ${node.network ? `
+                            <div class="resource-value">${formatBytes(node.network.total_rx_bytes + node.network.total_tx_bytes)}</div>
+                            <div class="resource-detail">
+                                <div class="network-stats">
+                                    <div><i class="fas fa-download"></i> 受信: ${formatBytes(node.network.total_rx_bytes)}</div>
+                                    <div><i class="fas fa-upload"></i> 送信: ${formatBytes(node.network.total_tx_bytes)}</div>
+                                    <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="resource-value">データなし</div>
+                            <div class="resource-detail">ネットワーク統計取得不可</div>
+                        `}
+                    </div>
+                    
+                    <div class="resource-card disk">
+                        <div class="resource-header">
+                            <div class="resource-icon">
+                                <i class="fas fa-hdd"></i>
+                            </div>
+                            <div class="resource-title">ディスク使用率</div>
+                        </div>
+                        ${node.disk ? `
+                            <div class="resource-value">${node.disk.usage_percent.toFixed(1)}%</div>
+                            <div class="resource-detail">
+                                <div class="disk-stats">
+                                    <div><i class="fas fa-database"></i> 使用: ${formatBytes(node.disk.total_used)}</div>
+                                    <div><i class="fas fa-hdd"></i> 総容量: ${formatBytes(node.disk.total_size)}</div>
+                                    <div><i class="fas fa-server"></i> ${node.disk.disks_count}台のディスク</div>
+                                </div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${getProgressClass(node.disk.usage_percent)}" 
+                                     style="width: ${Math.min(node.disk.usage_percent, 100)}%"></div>
+                            </div>
+                        ` : `
+                            <div class="resource-value">データなし</div>
+                            <div class="resource-detail">ディスク統計取得不可</div>
+                        `}
                     </div>
                 </div>
             `;
