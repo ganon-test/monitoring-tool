@@ -264,43 +264,54 @@ class ProxmoxDashboard {
     updateOverviewCards(data) {
         const nodes = data.nodes || [];
         const vms = data.vms || [];
-        const containers = data.containers || [];
         
-        // CPU使用率計算
+        console.log('📊 概要カード更新開始:', { nodes: nodes.length, vms: vms.length });
+        
+        // アクティブなノードのみを対象
+        const activeNodes = nodes.filter(node => node.status === 'online');
+        
+        // CPU使用率計算（アクティブノードの平均）
         let totalCpu = 0;
         let cpuCount = 0;
-        nodes.forEach(node => {
-            if (node.status === 'online' && node.cpu !== undefined) {
+        activeNodes.forEach(node => {
+            if (node.cpu !== undefined) {
                 totalCpu += node.cpu;
                 cpuCount++;
             }
         });
         const avgCpu = cpuCount > 0 ? (totalCpu / cpuCount) : 0;
 
-        // メモリ使用率計算
-        let totalMemory = 0;
+        // メモリ使用率計算（アクティブノードの合計）
+        let totalMemoryUsed = 0;
         let totalMemoryMax = 0;
-        nodes.forEach(node => {
-            if (node.status === 'online' && node.memory !== undefined) {
-                totalMemory += node.memory.used || 0;
-                totalMemoryMax += node.memory.total || 0;
+        activeNodes.forEach(node => {
+            if (node.memory_used !== undefined && node.memory_total !== undefined) {
+                totalMemoryUsed += node.memory_used;
+                totalMemoryMax += node.memory_total;
             }
         });
-        const memoryUsage = totalMemoryMax > 0 ? (totalMemory / totalMemoryMax * 100) : 0;
+        const memoryUsage = totalMemoryMax > 0 ? (totalMemoryUsed / totalMemoryMax * 100) : 0;
 
-        // アクティブノード数
-        const activeNodes = nodes.filter(node => node.status === 'online').length;
+        // VM/コンテナの統計
+        const runningVMs = vms.filter(vm => vm.status === 'running');
+        const totalVMs = vms.length;
         
-        // 稼働VM/CT数
-        const runningVms = [...vms, ...containers].filter(vm => vm.status === 'running').length;
-        const totalVMs = vms.length + containers.length;
+        console.log('📈 計算結果:', {
+            avgCpu: avgCpu.toFixed(1) + '%',
+            memoryUsage: memoryUsage.toFixed(1) + '%',
+            activeNodes: activeNodes.length,
+            totalNodes: nodes.length,
+            runningVMs: runningVMs.length,
+            totalVMs: totalVMs
+        });
 
         // UI更新
         document.getElementById('overallCpuUsage').textContent = `${avgCpu.toFixed(1)}%`;
         document.getElementById('overallMemoryUsage').textContent = `${memoryUsage.toFixed(1)}%`;
-        document.getElementById('activeNodes').textContent = activeNodes;
+        document.getElementById('activeNodes').textContent = activeNodes.length;
         document.getElementById('totalNodes').textContent = nodes.length;
-        document.getElementById('runningVms').textContent = runningVms;
+        document.getElementById('runningVms').textContent = runningVMs.length;
+        document.getElementById('totalVms').textContent = totalVMs;
         document.getElementById('totalVms').textContent = totalVMs;
 
         // トレンド表示（簡略化）
@@ -345,12 +356,32 @@ class ProxmoxDashboard {
         
         const statusClass = node.status === 'online' ? 'online' : 'offline';
         const cpuUsage = node.cpu || 0;
-        const memoryUsage = node.memory ? (node.memory.used / node.memory.total * 100) : 0;
+        
+        // メモリ使用率の正しい計算
+        let memoryUsage = 0;
+        let memoryText = '0 GB / 0 GB';
+        
+        if (node.memory_percent !== undefined) {
+            // バックエンドで計算済みの場合
+            memoryUsage = node.memory_percent;
+        } else if (node.memory_total && node.memory_total > 0) {
+            // 手動計算
+            memoryUsage = (node.memory_used / node.memory_total) * 100;
+        }
+        
+        if (node.memory_used && node.memory_total) {
+            const usedGB = (node.memory_used / 1024 / 1024 / 1024).toFixed(1);
+            const totalGB = (node.memory_total / 1024 / 1024 / 1024).toFixed(1);
+            memoryText = `${usedGB} GB / ${totalGB} GB`;
+        }
+        
+        console.log(`🖥️ ノード ${node.name}: CPU=${cpuUsage.toFixed(1)}%, メモリ=${memoryUsage.toFixed(1)}%`);
         
         card.innerHTML = `
             <div class="node-header">
-                <div class="node-title">${node.node}</div>
+                <div class="node-title">${node.name || node.node}</div>
                 <div class="status-badge ${statusClass}">${node.status}</div>
+                ${node.host ? `<div class="node-host">@${node.host}</div>` : ''}
             </div>
             <div class="resource-info">
                 <div class="resource-item">
@@ -358,15 +389,16 @@ class ProxmoxDashboard {
                     <div class="resource-value">${cpuUsage.toFixed(1)}%</div>
                     <div class="progress-bar">
                         <div class="progress-fill ${this.getProgressClass(cpuUsage)}" 
-                             style="width: ${cpuUsage}%"></div>
+                             style="width: ${Math.min(cpuUsage, 100)}%"></div>
                     </div>
                 </div>
                 <div class="resource-item">
                     <div class="resource-label">メモリ使用率</div>
                     <div class="resource-value">${memoryUsage.toFixed(1)}%</div>
+                    <div class="resource-detail">${memoryText}</div>
                     <div class="progress-bar">
                         <div class="progress-fill ${this.getProgressClass(memoryUsage)}" 
-                             style="width: ${memoryUsage}%"></div>
+                             style="width: ${Math.min(memoryUsage, 100)}%"></div>
                     </div>
                 </div>
             </div>

@@ -136,16 +136,24 @@ class ProxmoxClient {
                 // ノード詳細情報
                 const status = await this.apiRequest(`/nodes/${nodeName}/status`);
                 if (status) {
+                    const memoryUsed = status.memory?.used || 0;
+                    const memoryTotal = status.memory?.total || 0;
+                    const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0;
+                    
                     const nodeData = {
                         name: nodeName,
                         status: node.status,
                         cpu: (status.cpu || 0) * 100,
-                        memory_used: status.memory?.used || 0,
-                        memory_total: status.memory?.total || 0,
+                        memory_used: memoryUsed,
+                        memory_total: memoryTotal,
+                        memory_percent: memoryPercent,
                         uptime: status.uptime || 0,
-                        load: status.loadavg || [0, 0, 0]
+                        load: status.loadavg || [0, 0, 0],
+                        host: this.host  // どのProxmoxホストからのデータか識別
                     };
                     data.nodes.push(nodeData);
+                    
+                    console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB)`);
                 }
 
                 // VM一覧
@@ -154,14 +162,17 @@ class ProxmoxClient {
                     for (const vm of vms) {
                         data.vms.push({
                             id: vm.vmid,
-                            name: vm.name,
+                            name: vm.name || `VM-${vm.vmid}`,
                             status: vm.status,
                             node: nodeName,
+                            host: this.host,
                             type: 'vm',
                             cpu: vm.cpu ? vm.cpu * 100 : 0,
-                            memory: vm.mem || 0
+                            memory: vm.mem || 0,
+                            maxmem: vm.maxmem || 0
                         });
                     }
+                    console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
                 }
 
                 // コンテナ一覧
@@ -170,14 +181,17 @@ class ProxmoxClient {
                     for (const ct of containers) {
                         data.vms.push({
                             id: ct.vmid,
-                            name: ct.name,
+                            name: ct.name || `CT-${ct.vmid}`,
                             status: ct.status,
                             node: nodeName,
+                            host: this.host,
                             type: 'container',
                             cpu: ct.cpu ? ct.cpu * 100 : 0,
-                            memory: ct.mem || 0
+                            memory: ct.mem || 0,
+                            maxmem: ct.maxmem || 0
                         });
                     }
+                    console.log(`📦 ${nodeName}: ${containers.length}個のコンテナ`);
                 }
 
                 // ストレージ情報
@@ -241,10 +255,23 @@ class DatabaseManager {
         const nodes = data.nodes || [];
         const vms = data.vms || [];
         
-        const totalCpu = nodes.length > 0 ? nodes.reduce((sum, node) => sum + node.cpu, 0) / nodes.length : 0;
-        const totalMemoryUsed = nodes.reduce((sum, node) => sum + node.memory_used, 0);
-        const totalMemoryTotal = nodes.reduce((sum, node) => sum + node.memory_total, 0);
+        // アクティブノードのみを対象とした統計
+        const activeNodes = nodes.filter(node => node.status === 'online');
+        
+        const totalCpu = activeNodes.length > 0 ? activeNodes.reduce((sum, node) => sum + node.cpu, 0) / activeNodes.length : 0;
+        const totalMemoryUsed = activeNodes.reduce((sum, node) => sum + node.memory_used, 0);
+        const totalMemoryTotal = activeNodes.reduce((sum, node) => sum + node.memory_total, 0);
         const vmsRunning = vms.filter(vm => vm.status === 'running').length;
+
+        console.log('💾 統計保存:', {
+            activeNodes: activeNodes.length,
+            totalNodes: nodes.length,
+            avgCpu: totalCpu.toFixed(1),
+            memoryUsedGB: (totalMemoryUsed / 1024 / 1024 / 1024).toFixed(1),
+            memoryTotalGB: (totalMemoryTotal / 1024 / 1024 / 1024).toFixed(1),
+            vmsRunning: vmsRunning,
+            vmsTotal: vms.length
+        });
 
         const sql = `
             INSERT INTO metrics_history 
@@ -252,7 +279,7 @@ class DatabaseManager {
             VALUES (?, ?, ?, ?, ?, ?)
         `;
 
-        this.db.run(sql, [totalCpu, totalMemoryUsed, totalMemoryTotal, nodes.length, vmsRunning, vms.length], (err) => {
+        this.db.run(sql, [totalCpu, totalMemoryUsed, totalMemoryTotal, activeNodes.length, vmsRunning, vms.length], (err) => {
             if (err) {
                 console.error('メトリクス保存エラー:', err);
             }

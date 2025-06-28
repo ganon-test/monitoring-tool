@@ -383,6 +383,20 @@ body {
     color: var(--text-primary);
 }
 
+.node-host {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+.resource-detail {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 .status-badge {
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-md);
