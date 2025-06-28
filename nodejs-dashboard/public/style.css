@@ -1011,6 +1011,36 @@ body {
     margin-bottom: 4px;
 }
 
+/* I/O統計表示 */
+.vm-resource.io .resource-detail.io-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.io-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.io-stat i {
+    width: 12px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+/* ネットワーク・ディスク統計の色分け */
+.io-stat:nth-child(1) {
+    color: var(--info-color);
+}
+
+.io-stat:nth-child(2) {
+    color: var(--warning-color);
+}
+
 /* VM詳細モーダル */
 .vm-detail-modal .modal-content {
     max-width: 900px;

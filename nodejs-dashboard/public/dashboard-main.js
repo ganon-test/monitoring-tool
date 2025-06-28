@@ -187,6 +187,19 @@ class ProxmoxDashboard {
         // VM/CT情報更新
         this.vmManager.updateVMs(data.vms || []);
         
+        // VM/CTのI/O統計デバッグ出力
+        if (data.vms && data.vms.length > 0) {
+            console.log('🔍 VM/CT I/O統計サマリー:');
+            data.vms.forEach(vm => {
+                const netTotal = vm.netio ? (vm.netio.netin + vm.netio.netout) : 0;
+                const diskTotal = vm.diskio ? (vm.diskio.diskread + vm.diskio.diskwrite) : 0;
+                const netStatus = netTotal > 0 ? `${(netTotal/1024).toFixed(1)}KB/s` : '0';
+                const diskStatus = diskTotal > 0 ? `${(diskTotal/1024).toFixed(1)}KB/s` : '0';
+                
+                console.log(`  ${vm.type.toUpperCase()} ${vm.id} (${vm.name}): ネット=${netStatus}, ディスク=${diskStatus}, 状態=${vm.status}`);
+            });
+        }
+        
         // 選択されたVMの詳細モーダルが開いている場合は更新
         if (this.vmManager.selectedVMId) {
             const selectedVM = (data.vms || []).find(vm => vm.id === this.vmManager.selectedVMId);

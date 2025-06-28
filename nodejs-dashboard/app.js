@@ -423,56 +423,13 @@ class ProxmoxClient {
                         console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${loadInfo}, ${networkInfo}, ${diskInfo}`);
                     }
 
-                    // VM一覧（実データのみ、ダミーデータ一切なし）
+                    // VM一覧（詳細な統計データ取得）
                     const vms = await this.apiRequest(`/nodes/${nodeName}/qemu`);
                     if (vms) {
                         for (const vm of vms) {
-                            // 各VMの詳細な統計を取得
-                            let vmDetails = null;
-                            try {
-                                if (vm.status === 'running') {
-                                    vmDetails = await this.apiRequest(`/nodes/${nodeName}/qemu/${vm.vmid}/status/current`);
-                                }
-                            } catch (vmError) {
-                                console.log(`⚠️  VM ${vm.vmid} 詳細取得失敗: ${vmError.message}`);
-                            }
-
-                            // ネットワークIOとディスクIOの値を安全に処理（異常な巨大値を防ぐ）
-                            let netio = null;
-                            let diskio = null;
+                            // 各VMの詳細統計を取得（複数のエンドポイントから）
+                            const vmStats = await this.getVMDetailedStats(nodeName, vm.vmid, 'qemu', vm.status);
                             
-                            if (vmDetails) {
-                                // ネットワークIO: バイト/秒として扱う（累積値ではない）
-                                const netin = Math.abs(parseFloat(vmDetails.netin) || 0);
-                                const netout = Math.abs(parseFloat(vmDetails.netout) || 0);
-                                
-                                // 異常に大きい値（1GB/s以上）は除外
-                                if (netin < 1073741824 && netout < 1073741824) {
-                                    netio = {
-                                        netin: netin,
-                                        netout: netout
-                                    };
-                                } else {
-                                    console.log(`⚠️ VM ${vm.vmid} ネットワークIO異常値除外: netin=${(netin/1024/1024).toFixed(1)}MB/s, netout=${(netout/1024/1024).toFixed(1)}MB/s`);
-                                    netio = { netin: 0, netout: 0 };
-                                }
-                                
-                                // ディスクIO: バイト/秒として扱う（累積値ではない）
-                                const diskread = Math.abs(parseFloat(vmDetails.diskread) || 0);
-                                const diskwrite = Math.abs(parseFloat(vmDetails.diskwrite) || 0);
-                                
-                                // 異常に大きい値（1GB/s以上）は除外
-                                if (diskread < 1073741824 && diskwrite < 1073741824) {
-                                    diskio = {
-                                        diskread: diskread,
-                                        diskwrite: diskwrite
-                                    };
-                                } else {
-                                    console.log(`⚠️ VM ${vm.vmid} ディスクIO異常値除外: read=${(diskread/1024/1024).toFixed(1)}MB/s, write=${(diskwrite/1024/1024).toFixed(1)}MB/s`);
-                                    diskio = { diskread: 0, diskwrite: 0 };
-                                }
-                            }
-
                             data.vms.push({
                                 id: vm.vmid,
                                 name: vm.name || `VM-${vm.vmid}`,
@@ -483,66 +440,24 @@ class ProxmoxClient {
                                 cpu: vm.cpu ? vm.cpu * 100 : 0,
                                 memory: vm.mem || 0,
                                 maxmem: vm.maxmem || 0,
-                                uptime: vmDetails?.uptime || 0,
-                                netio: netio,
-                                diskio: diskio,
-                                pid: vmDetails?.pid || null,
-                                balloon: vmDetails?.balloon || null,
-                                ballooninfo: vmDetails?.ballooninfo || null
+                                uptime: vmStats.uptime || 0,
+                                netio: vmStats.netio,
+                                diskio: vmStats.diskio,
+                                pid: vmStats.pid || null,
+                                balloon: vmStats.balloon || null,
+                                ballooninfo: vmStats.ballooninfo || null,
+                                config: vmStats.config || null
                             });
                         }
                         console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
                     }
 
-                    // コンテナ一覧（実データのみ、ダミーデータ一切なし）
+                    // コンテナ一覧（詳細な統計データ取得）
                     const containers = await this.apiRequest(`/nodes/${nodeName}/lxc`);
                     if (containers) {
                         for (const ct of containers) {
-                            // 各コンテナの詳細な統計を取得
-                            let ctDetails = null;
-                            try {
-                                if (ct.status === 'running') {
-                                    ctDetails = await this.apiRequest(`/nodes/${nodeName}/lxc/${ct.vmid}/status/current`);
-                                }
-                            } catch (ctError) {
-                                console.log(`⚠️  CT ${ct.vmid} 詳細取得失敗: ${ctError.message}`);
-                            }
-
-                            // ネットワークIOとディスクIOの値を安全に処理（異常な巨大値を防ぐ）
-                            let netio = null;
-                            let diskio = null;
-                            
-                            if (ctDetails) {
-                                // ネットワークIO: バイト/秒として扱う（累積値ではない）
-                                const netin = Math.abs(parseFloat(ctDetails.netin) || 0);
-                                const netout = Math.abs(parseFloat(ctDetails.netout) || 0);
-                                
-                                // 異常に大きい値（1GB/s以上）は除外
-                                if (netin < 1073741824 && netout < 1073741824) {
-                                    netio = {
-                                        netin: netin,
-                                        netout: netout
-                                    };
-                                } else {
-                                    console.log(`⚠️ CT ${ct.vmid} ネットワークIO異常値除外: netin=${(netin/1024/1024).toFixed(1)}MB/s, netout=${(netout/1024/1024).toFixed(1)}MB/s`);
-                                    netio = { netin: 0, netout: 0 };
-                                }
-                                
-                                // ディスクIO: バイト/秒として扱う（累積値ではない）
-                                const diskread = Math.abs(parseFloat(ctDetails.diskread) || 0);
-                                const diskwrite = Math.abs(parseFloat(ctDetails.diskwrite) || 0);
-                                
-                                // 異常に大きい値（1GB/s以上）は除外
-                                if (diskread < 1073741824 && diskwrite < 1073741824) {
-                                    diskio = {
-                                        diskread: diskread,
-                                        diskwrite: diskwrite
-                                    };
-                                } else {
-                                    console.log(`⚠️ CT ${ct.vmid} ディスクIO異常値除外: read=${(diskread/1024/1024).toFixed(1)}MB/s, write=${(diskwrite/1024/1024).toFixed(1)}MB/s`);
-                                    diskio = { diskread: 0, diskwrite: 0 };
-                                }
-                            }
+                            // 各コンテナの詳細統計を取得（複数のエンドポイントから）
+                            const ctStats = await this.getVMDetailedStats(nodeName, ct.vmid, 'lxc', ct.status);
 
                             data.vms.push({
                                 id: ct.vmid,
@@ -554,10 +469,11 @@ class ProxmoxClient {
                                 cpu: ct.cpu ? ct.cpu * 100 : 0,
                                 memory: ct.mem || 0,
                                 maxmem: ct.maxmem || 0,
-                                uptime: ctDetails?.uptime || 0,
-                                netio: netio,
-                                diskio: diskio,
-                                pid: ctDetails?.pid || null
+                                uptime: ctStats.uptime || 0,
+                                netio: ctStats.netio,
+                                diskio: ctStats.diskio,
+                                pid: ctStats.pid || null,
+                                config: ctStats.config || null
                             });
                         }
                         console.log(`📦 ${nodeName}: ${containers.length}個のコンテナ`);
@@ -592,6 +508,131 @@ class ProxmoxClient {
             data.cluster_status = 'offline';
             throw error; // エラーを上位に伝播してフェイルオーバーを促す
         }
+    }
+
+    // VM/CTの詳細統計取得（複数エンドポイントから）
+    async getVMDetailedStats(nodeName, vmid, type, status) {
+        const stats = {
+            uptime: 0,
+            netio: null,
+            diskio: null,
+            pid: null,
+            balloon: null,
+            ballooninfo: null,
+            config: null
+        };
+
+        try {
+            // 1. 基本ステータス情報の取得（running状態のみ）
+            if (status === 'running') {
+                try {
+                    const currentStatus = await this.apiRequest(`/nodes/${nodeName}/${type}/${vmid}/status/current`);
+                    if (currentStatus) {
+                        stats.uptime = currentStatus.uptime || 0;
+                        stats.pid = currentStatus.pid || null;
+                        
+                        if (type === 'qemu') {
+                            stats.balloon = currentStatus.balloon || null;
+                            stats.ballooninfo = currentStatus.ballooninfo || null;
+                        }
+
+                        // ネットワークIOとディスクIOの基本値を取得
+                        const netin = Math.abs(parseFloat(currentStatus.netin) || 0);
+                        const netout = Math.abs(parseFloat(currentStatus.netout) || 0);
+                        const diskread = Math.abs(parseFloat(currentStatus.diskread) || 0);
+                        const diskwrite = Math.abs(parseFloat(currentStatus.diskwrite) || 0);
+
+                        // 異常値チェック（1GB/s以上は除外）
+                        if (netin < 1073741824 && netout < 1073741824) {
+                            stats.netio = { netin, netout };
+                        }
+                        if (diskread < 1073741824 && diskwrite < 1073741824) {
+                            stats.diskio = { diskread, diskwrite };
+                        }
+
+                        console.log(`📊 ${type.toUpperCase()} ${vmid} 基本統計: ネット=${(netin+netout)/1024}KB/s, ディスク=${(diskread+diskwrite)/1024}KB/s`);
+                    }
+                } catch (statusError) {
+                    console.log(`⚠️  ${type.toUpperCase()} ${vmid} ステータス取得失敗: ${statusError.message}`);
+                }
+
+                // 2. RRDデータから統計を取得（より正確な値）
+                try {
+                    const rrdData = await this.apiRequest(`/nodes/${nodeName}/${type}/${vmid}/rrddata`, {
+                        ds: 'netin,netout,diskread,diskwrite',
+                        timeframe: 'hour'
+                    });
+                    
+                    if (rrdData && rrdData.length > 0) {
+                        // 最新のデータポイントを使用
+                        const latest = rrdData[rrdData.length - 1];
+                        
+                        if (latest) {
+                            const rrdNetin = Math.abs(parseFloat(latest.netin) || 0);
+                            const rrdNetout = Math.abs(parseFloat(latest.netout) || 0);
+                            const rrdDiskread = Math.abs(parseFloat(latest.diskread) || 0);
+                            const rrdDiskwrite = Math.abs(parseFloat(latest.diskwrite) || 0);
+
+                            // RRDデータがより信頼できる場合は置き換え
+                            if (rrdNetin < 1073741824 && rrdNetout < 1073741824 && (rrdNetin > 0 || rrdNetout > 0)) {
+                                stats.netio = { netin: rrdNetin, netout: rrdNetout };
+                                console.log(`📈 ${type.toUpperCase()} ${vmid} RRDネットワーク統計: ${((rrdNetin+rrdNetout)/1024).toFixed(1)}KB/s`);
+                            }
+                            if (rrdDiskread < 1073741824 && rrdDiskwrite < 1073741824 && (rrdDiskread > 0 || rrdDiskwrite > 0)) {
+                                stats.diskio = { diskread: rrdDiskread, diskwrite: rrdDiskwrite };
+                                console.log(`📈 ${type.toUpperCase()} ${vmid} RRDディスク統計: ${((rrdDiskread+rrdDiskwrite)/1024).toFixed(1)}KB/s`);
+                            }
+                        }
+                    }
+                } catch (rrdError) {
+                    console.log(`⚠️  ${type.toUpperCase()} ${vmid} RRD統計取得失敗: ${rrdError.message}`);
+                }
+            }
+
+            // 3. 設定情報の取得（ディスクやネットワーク設定）
+            try {
+                const config = await this.apiRequest(`/nodes/${nodeName}/${type}/${vmid}/config`);
+                if (config) {
+                    stats.config = {
+                        disks: [],
+                        networks: []
+                    };
+
+                    // ディスク設定の解析
+                    Object.keys(config).forEach(key => {
+                        if (key.startsWith('scsi') || key.startsWith('ide') || key.startsWith('sata') || key.startsWith('virtio') || key.startsWith('rootfs') || key.startsWith('mp')) {
+                            stats.config.disks.push({
+                                name: key,
+                                value: config[key]
+                            });
+                        }
+                        if (key.startsWith('net')) {
+                            stats.config.networks.push({
+                                name: key,
+                                value: config[key]
+                            });
+                        }
+                    });
+
+                    console.log(`⚙️  ${type.toUpperCase()} ${vmid} 設定: ${stats.config.disks.length}ディスク, ${stats.config.networks.length}ネットワーク`);
+                }
+            } catch (configError) {
+                console.log(`⚠️  ${type.toUpperCase()} ${vmid} 設定取得失敗: ${configError.message}`);
+            }
+
+            // デフォルト値設定（何も取得できなかった場合）
+            if (!stats.netio) {
+                stats.netio = { netin: 0, netout: 0 };
+            }
+            if (!stats.diskio) {
+                stats.diskio = { diskread: 0, diskwrite: 0 };
+            }
+
+        } catch (error) {
+            console.error(`❌ ${type.toUpperCase()} ${vmid} 詳細統計取得エラー:`, error.message);
+        }
+
+        return stats;
     }
 }
 

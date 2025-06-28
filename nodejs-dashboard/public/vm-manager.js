@@ -117,6 +117,23 @@ class VMManager {
                                  style="width: ${Math.min(memoryUsage, 100)}%"></div>
                         </div>
                     </div>
+                    
+                    <div class="vm-resource io">
+                        <div class="resource-label">
+                            <i class="fas fa-exchange-alt"></i>
+                            I/O統計
+                        </div>
+                        <div class="resource-detail io-stats">
+                            <div class="io-stat">
+                                <i class="fas fa-network-wired"></i> 
+                                ネット: ${formatNetworkStats(vm.netio)}
+                            </div>
+                            <div class="io-stat">
+                                <i class="fas fa-hdd"></i> 
+                                ディスク: ${formatDiskStats(vm.diskio)}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             ` : ''}
         `;
@@ -189,22 +206,48 @@ class VMManager {
         document.getElementById('vmDetailDiskUsage').textContent = `${diskUsage.toFixed(1)}% (${formatBytes(vm.disk || 0)})`;
         document.getElementById('vmDetailDiskMax').textContent = formatBytes(vm.maxdisk || 0);
 
-        // ネットワーク情報（実データのみ、異常値チェック付き）
+        // ネットワーク情報（詳細なデバッグ付き）
+        console.log(`🔍 VM ${vmId} ネットワークIO:`, vm.netio);
         if (vm.netio) {
-            document.getElementById('vmDetailNetOut').textContent = formatSpeed(vm.netio.netout);
-            document.getElementById('vmDetailNetIn').textContent = formatSpeed(vm.netio.netin);
+            const netinSpeed = formatSpeed(vm.netio.netin);
+            const netoutSpeed = formatSpeed(vm.netio.netout);
+            document.getElementById('vmDetailNetOut').textContent = netoutSpeed;
+            document.getElementById('vmDetailNetIn').textContent = netinSpeed;
+            
+            // ネットワーク統計が0でない場合はログ出力
+            if (vm.netio.netin > 0 || vm.netio.netout > 0) {
+                console.log(`📊 VM ${vmId} ネットワーク活動: 受信=${netinSpeed}, 送信=${netoutSpeed}`);
+            }
         } else {
             document.getElementById('vmDetailNetOut').textContent = '--';
             document.getElementById('vmDetailNetIn').textContent = '--';
+            console.log(`⚠️ VM ${vmId} ネットワークIOデータなし`);
         }
 
-        // ディスクI/O情報（実データのみ、異常値チェック付き）
+        // ディスクI/O情報（詳細なデバッグ付き）
+        console.log(`🔍 VM ${vmId} ディスクIO:`, vm.diskio);
         if (vm.diskio) {
-            document.getElementById('vmDetailDiskRead').textContent = formatSpeed(vm.diskio.diskread);
-            document.getElementById('vmDetailDiskWrite').textContent = formatSpeed(vm.diskio.diskwrite);
+            const readSpeed = formatSpeed(vm.diskio.diskread);
+            const writeSpeed = formatSpeed(vm.diskio.diskwrite);
+            document.getElementById('vmDetailDiskRead').textContent = readSpeed;
+            document.getElementById('vmDetailDiskWrite').textContent = writeSpeed;
+            
+            // ディスクIO活動が0でない場合はログ出力
+            if (vm.diskio.diskread > 0 || vm.diskio.diskwrite > 0) {
+                console.log(`📊 VM ${vmId} ディスク活動: 読み取り=${readSpeed}, 書き込み=${writeSpeed}`);
+            }
         } else {
             document.getElementById('vmDetailDiskRead').textContent = '--';
             document.getElementById('vmDetailDiskWrite').textContent = '--';
+            console.log(`⚠️ VM ${vmId} ディスクIOデータなし`);
+        }
+
+        // 設定情報の表示（利用可能な場合）
+        if (vm.config) {
+            console.log(`⚙️ VM ${vmId} 設定情報:`, {
+                disks: vm.config.disks?.length || 0,
+                networks: vm.config.networks?.length || 0
+            });
         }
 
         // カードの選択状態を更新
