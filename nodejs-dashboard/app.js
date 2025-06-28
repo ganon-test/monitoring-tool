@@ -351,11 +351,10 @@ class ProxmoxMonitor {
             const config = yaml.parse(configFile);
             console.log('📄 設定ファイル内容:', JSON.stringify(config, null, 2));
 
-            // 環境変数の優先、設定ファイルの構造に対応
+            // Proxmoxホスト設定の読み込み
+            // すべての設定はconfig.yamlから、パスワードのみ環境変数から取得
             let proxmoxHosts;
-            if (process.env.PROXMOX_HOSTS) {
-                proxmoxHosts = JSON.parse(process.env.PROXMOX_HOSTS);
-            } else if (Array.isArray(config.proxmox)) {
+            if (Array.isArray(config.proxmox)) {
                 // config.yaml の proxmox が直接配列の場合
                 proxmoxHosts = config.proxmox;
             } else if (config.proxmox && config.proxmox.hosts) {
@@ -374,7 +373,7 @@ class ProxmoxMonitor {
             for (let i = 0; i < proxmoxHosts.length; i++) {
                 const hostConfig = proxmoxHosts[i];
                 
-                // 環境変数からパスワードを取得
+                // パスワードのみ環境変数から取得（セキュリティのため）
                 const passwordEnvVar = `PROXMOX_PASSWORD_${i + 1}`;
                 const password = process.env[passwordEnvVar] || hostConfig.password;
                 

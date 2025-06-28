@@ -62,8 +62,8 @@ cp .env.example .env
 ```
 
 5. 設定ファイルを編集:
-- `../config.yaml`: Proxmox/Nextcloudの接続情報
-- `.env`: 機密情報（パスワードなど）
+- `../config.yaml`: Proxmox/Nextcloudの接続情報（ホスト、ユーザー名、ポートなど）
+- `.env`: パスワードのみ（セキュリティのため）
 
 6. アプリケーションを起動:
 ```bash
@@ -101,9 +101,9 @@ monitoring-api/
 
 ### Docker Compose
 ```bash
-# 環境変数を設定
+# パスワード用環境変数を設定
 cp .env.example .env
-# .envを編集
+# .envファイルを編集してパスワードを設定
 
 # 起動
 docker-compose up -d
@@ -163,14 +163,21 @@ monitoring:
   history_retention_days: 7
 ```
 
-### 環境変数
+### 環境変数（パスワードのみ）
 ```bash
-NEXTCLOUD_PASSWORD=your_nextcloud_password
+# Proxmoxサーバーのパスワード（番号はconfig.yamlでの定義順序に対応）
 PROXMOX_PASSWORD_1=your_proxmox_password_1
 PROXMOX_PASSWORD_2=your_proxmox_password_2
+
+# Nextcloudパスワード
+NEXTCLOUD_PASSWORD=your_nextcloud_password
+
+# サーバー設定（オプション）
 PORT=3000
 NODE_ENV=production
 ```
+
+**注意**: セキュリティのため、パスワード以外の設定（ホスト名、ユーザー名、ポートなど）は `config.yaml` で管理し、パスワードのみを環境変数で設定してください。
 
 ## 🔄 冗長化とフェイルオーバー
 
