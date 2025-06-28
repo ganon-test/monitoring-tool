@@ -234,8 +234,8 @@ class ProxmoxClient {
                         data.nodes.push(nodeData);
                         
                         // 詳細なログ出力
-                        const networkInfo = networkData ? `ネットワーク: ${((networkData.total_rx_bytes + networkData.total_tx_bytes) / 1024 / 1024 / 1024).toFixed(2)}GB (${networkData.interfaces}IF)` : 'ネットワーク: N/A';
-                        const diskInfo = diskData ? `ディスク: ${diskData.usage_percent.toFixed(1)}% (${diskData.disks_count}台)` : 'ディスク: N/A';
+                        const networkInfo = networkData ? `ネットワーク: ${(((networkData.total_rx_bytes || 0) + (networkData.total_tx_bytes || 0)) / 1024 / 1024 / 1024).toFixed(2)}GB (${networkData.interfaces}IF)` : 'ネットワーク: N/A';
+                        const diskInfo = diskData ? `ディスク: ${(diskData.usage_percent || 0).toFixed(1)}% (${diskData.disks_count}台)` : 'ディスク: N/A';
                         
                         console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${networkInfo}, ${diskInfo}`);
                     }
