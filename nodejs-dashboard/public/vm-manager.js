@@ -186,16 +186,26 @@ class VMManager {
         document.getElementById('vmDetailMemMax').textContent = formatBytes(vm.maxmem);
         
         const diskUsage = vm.maxdisk > 0 ? (vm.disk / vm.maxdisk * 100) : 0;
-        document.getElementById('vmDetailDiskUsage').textContent = `${diskUsage.toFixed(1)}% (${formatBytes(vm.disk)})`;
-        document.getElementById('vmDetailDiskMax').textContent = formatBytes(vm.maxdisk);
+        document.getElementById('vmDetailDiskUsage').textContent = `${diskUsage.toFixed(1)}% (${formatBytes(vm.disk || 0)})`;
+        document.getElementById('vmDetailDiskMax').textContent = formatBytes(vm.maxdisk || 0);
 
-        // ネットワーク情報
-        document.getElementById('vmDetailNetOut').textContent = vm.netout ? formatBytes(vm.netout) + '/s' : '--';
-        document.getElementById('vmDetailNetIn').textContent = vm.netin ? formatBytes(vm.netin) + '/s' : '--';
+        // ネットワーク情報（新しいnetioデータを使用）
+        if (vm.netio) {
+            document.getElementById('vmDetailNetOut').textContent = formatBytes(vm.netio.netout) + '/s';
+            document.getElementById('vmDetailNetIn').textContent = formatBytes(vm.netio.netin) + '/s';
+        } else {
+            document.getElementById('vmDetailNetOut').textContent = '--';
+            document.getElementById('vmDetailNetIn').textContent = '--';
+        }
 
-        // ディスクI/O情報
-        document.getElementById('vmDetailDiskRead').textContent = vm.diskread ? formatBytes(vm.diskread) + '/s' : '--';
-        document.getElementById('vmDetailDiskWrite').textContent = vm.diskwrite ? formatBytes(vm.diskwrite) + '/s' : '--';
+        // ディスクI/O情報（新しいdiskioデータを使用）
+        if (vm.diskio) {
+            document.getElementById('vmDetailDiskRead').textContent = formatBytes(vm.diskio.diskread) + '/s';
+            document.getElementById('vmDetailDiskWrite').textContent = formatBytes(vm.diskio.diskwrite) + '/s';
+        } else {
+            document.getElementById('vmDetailDiskRead').textContent = '--';
+            document.getElementById('vmDetailDiskWrite').textContent = '--';
+        }
 
         // カードの選択状態を更新
         this.updateCardSelection(vmId);

@@ -149,69 +149,149 @@ class ProxmoxClient {
                         const memoryTotal = status.memory?.total || 0;
                         const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0;
                         
-                        // ネットワーク統計を取得
+                        // ロードアベレージの安全な取得
+                        let loadAvg = [0, 0, 0];
+                        if (status.loadavg) {
+                            if (Array.isArray(status.loadavg)) {
+                                loadAvg = status.loadavg.map(load => parseFloat(load) || 0);
+                            } else if (typeof status.loadavg === 'string') {
+                                // 文字列の場合は分割
+                                const parts = status.loadavg.split(' ').map(part => parseFloat(part) || 0);
+                                loadAvg = [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                            }
+                        }
+                        
+                        // 追加のシステム統計を取得
+                        let systemStats = null;
+                        try {
+                            systemStats = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
+                                ds: 'loadavg,cpu,memused',
+                                timeframe: 'hour'
+                            });
+                            if (systemStats && systemStats.length > 0) {
+                                const latest = systemStats[systemStats.length - 1];
+                                if (latest.loadavg !== null && latest.loadavg !== undefined) {
+                                    loadAvg = [parseFloat(latest.loadavg) || 0, 0, 0];
+                                }
+                            }
+                        } catch (rrdError) {
+                            console.log(`⚠️  RRD統計取得失敗 ${nodeName}: ${rrdError.message}`);
+                        }
+                        
+                        // ネットワーク統計を取得（proc/net/devから）
                         let networkData = null;
                         try {
-                            const netstat = await this.apiRequest(`/nodes/${nodeName}/netstat`);
-                            if (netstat && netstat.length > 0) {
-                                // 全インターフェースの合計値を計算
-                                let totalRxBytes = 0;
-                                let totalTxBytes = 0;
-                                for (const iface of netstat) {
-                                    totalRxBytes += parseInt(iface.receive_bytes || 0);
-                                    totalTxBytes += parseInt(iface.transmit_bytes || 0);
+                            // まず /proc/net/dev を試す
+                            const netDev = await this.apiRequest(`/nodes/${nodeName}/status`, { path: '/proc/net/dev' });
+                            if (netDev) {
+                                // /proc/net/devが取得できない場合はrrddata APIを使用
+                                const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
+                                    ds: 'netin,netout',
+                                    timeframe: 'hour'
+                                });
+                                
+                                if (rrdResponse && rrdResponse.length > 0) {
+                                    const latest = rrdResponse[rrdResponse.length - 1];
+                                    networkData = {
+                                        interfaces: 1, // RRDからは総計のみ
+                                        total_rx_bytes: parseInt(latest.netin || 0),
+                                        total_tx_bytes: parseInt(latest.netout || 0),
+                                        details: [{
+                                            name: 'total',
+                                            rx_bytes: parseInt(latest.netin || 0),
+                                            tx_bytes: parseInt(latest.netout || 0),
+                                            rx_packets: 0,
+                                            tx_packets: 0
+                                        }]
+                                    };
                                 }
-                                networkData = {
-                                    interfaces: netstat.length,
-                                    total_rx_bytes: totalRxBytes,
-                                    total_tx_bytes: totalTxBytes,
-                                    details: netstat.map(iface => ({
-                                        name: iface.device,
-                                        rx_bytes: parseInt(iface.receive_bytes || 0),
-                                        tx_bytes: parseInt(iface.transmit_bytes || 0),
-                                        rx_packets: parseInt(iface.receive_packets || 0),
-                                        tx_packets: parseInt(iface.transmit_packets || 0)
-                                    }))
-                                };
+                            } else {
+                                // 従来のnetstatを試す
+                                const netstat = await this.apiRequest(`/nodes/${nodeName}/netstat`);
+                                if (netstat && netstat.length > 0) {
+                                    let totalRxBytes = 0;
+                                    let totalTxBytes = 0;
+                                    for (const iface of netstat) {
+                                        totalRxBytes += parseInt(iface.receive || 0);
+                                        totalTxBytes += parseInt(iface.transmit || 0);
+                                    }
+                                    networkData = {
+                                        interfaces: netstat.length,
+                                        total_rx_bytes: totalRxBytes,
+                                        total_tx_bytes: totalTxBytes,
+                                        details: netstat.map(iface => ({
+                                            name: iface.iface || iface.device,
+                                            rx_bytes: parseInt(iface.receive || 0),
+                                            tx_bytes: parseInt(iface.transmit || 0),
+                                            rx_packets: parseInt(iface.receive_packets || 0),
+                                            tx_packets: parseInt(iface.transmit_packets || 0)
+                                        }))
+                                    };
+                                }
                             }
                         } catch (netError) {
                             console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: ${netError.message}`);
                         }
 
-                        // ディスク情報を取得
+                        // ディスク情報を取得（ストレージ統計を使用）
                         let diskData = null;
                         try {
-                            const diskList = await this.apiRequest(`/nodes/${nodeName}/disks/list`);
-                            if (diskList && diskList.length > 0) {
+                            // まずストレージ情報から使用率を取得
+                            const storage = await this.apiRequest(`/nodes/${nodeName}/storage`);
+                            if (storage && storage.length > 0) {
                                 let totalSize = 0;
                                 let totalUsed = 0;
-                                const diskDetails = [];
+                                let localStorages = 0;
                                 
-                                for (const disk of diskList) {
-                                    const size = parseInt(disk.size || 0);
-                                    const used = parseInt(disk.used || 0);
-                                    totalSize += size;
-                                    totalUsed += used;
-                                    
-                                    if (size > 0) {
-                                        diskDetails.push({
-                                            device: disk.devpath || disk.device,
-                                            model: disk.model || 'Unknown',
-                                            size: size,
-                                            used: used,
-                                            usage_percent: used > 0 ? (used / size) * 100 : 0,
-                                            type: disk.type || 'disk'
-                                        });
+                                for (const store of storage) {
+                                    if (store.type === 'dir' || store.type === 'zfspool' || store.type === 'lvm' || store.type === 'lvmthin') {
+                                        const size = parseInt(store.total || 0);
+                                        const used = parseInt(store.used || 0);
+                                        if (size > 0) {
+                                            totalSize += size;
+                                            totalUsed += used;
+                                            localStorages++;
+                                        }
                                     }
                                 }
                                 
-                                diskData = {
-                                    total_size: totalSize,
-                                    total_used: totalUsed,
-                                    usage_percent: totalSize > 0 ? (totalUsed / totalSize) * 100 : 0,
-                                    disks_count: diskDetails.length,
-                                    details: diskDetails
-                                };
+                                if (totalSize > 0) {
+                                    diskData = {
+                                        total_size: totalSize,
+                                        total_used: totalUsed,
+                                        usage_percent: (totalUsed / totalSize) * 100,
+                                        disks_count: localStorages,
+                                        details: storage.filter(s => s.total > 0).map(store => ({
+                                            device: store.storage,
+                                            model: store.type,
+                                            size: parseInt(store.total || 0),
+                                            used: parseInt(store.used || 0),
+                                            usage_percent: store.total > 0 ? (parseInt(store.used || 0) / parseInt(store.total || 0)) * 100 : 0,
+                                            type: store.type
+                                        }))
+                                    };
+                                }
+                            }
+                            
+                            // ストレージ情報が取得できない場合はディスクリストを試す
+                            if (!diskData) {
+                                const diskList = await this.apiRequest(`/nodes/${nodeName}/disks/list`);
+                                if (diskList && diskList.length > 0) {
+                                    diskData = {
+                                        total_size: 0,
+                                        total_used: 0,
+                                        usage_percent: 0,
+                                        disks_count: diskList.length,
+                                        details: diskList.map(disk => ({
+                                            device: disk.devpath || disk.device,
+                                            model: disk.model || 'Unknown',
+                                            size: parseInt(disk.size || 0),
+                                            used: 0, // ディスクリストでは使用量がわからない
+                                            usage_percent: 0,
+                                            type: disk.type || 'disk'
+                                        }))
+                                    };
+                                }
                             }
                         } catch (diskError) {
                             console.log(`⚠️  ディスク情報取得失敗 ${nodeName}: ${diskError.message}`);
@@ -226,7 +306,7 @@ class ProxmoxClient {
                             memory_total: memoryTotal,
                             memory_percent: memoryPercent,
                             uptime: status.uptime || 0,
-                            loadavg: status.loadavg || [0, 0, 0],
+                            loadavg: loadAvg,
                             network: networkData,
                             disk: diskData,
                             host: this.host  // どのProxmoxホストからのデータか識別
@@ -236,14 +316,25 @@ class ProxmoxClient {
                         // 詳細なログ出力
                         const networkInfo = networkData ? `ネットワーク: ${(((networkData.total_rx_bytes || 0) + (networkData.total_tx_bytes || 0)) / 1024 / 1024 / 1024).toFixed(2)}GB (${networkData.interfaces}IF)` : 'ネットワーク: N/A';
                         const diskInfo = diskData ? `ディスク: ${(diskData.usage_percent || 0).toFixed(1)}% (${diskData.disks_count}台)` : 'ディスク: N/A';
+                        const loadInfo = `ロード: ${loadAvg[0].toFixed(2)}/${loadAvg[1].toFixed(2)}/${loadAvg[2].toFixed(2)}`;
                         
-                        console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${networkInfo}, ${diskInfo}`);
+                        console.log(`📈 ノード統計 ${nodeName}: CPU=${nodeData.cpu.toFixed(1)}%, メモリ=${memoryPercent.toFixed(1)}% (${(memoryUsed/1024/1024/1024).toFixed(1)}GB/${(memoryTotal/1024/1024/1024).toFixed(1)}GB), ${loadInfo}, ${networkInfo}, ${diskInfo}`);
                     }
 
                     // VM一覧
                     const vms = await this.apiRequest(`/nodes/${nodeName}/qemu`);
                     if (vms) {
                         for (const vm of vms) {
+                            // 各VMの詳細な統計を取得
+                            let vmDetails = null;
+                            try {
+                                if (vm.status === 'running') {
+                                    vmDetails = await this.apiRequest(`/nodes/${nodeName}/qemu/${vm.vmid}/status/current`);
+                                }
+                            } catch (vmError) {
+                                console.log(`⚠️  VM ${vm.vmid} 詳細取得失敗: ${vmError.message}`);
+                            }
+
                             data.vms.push({
                                 id: vm.vmid,
                                 name: vm.name || `VM-${vm.vmid}`,
@@ -253,7 +344,19 @@ class ProxmoxClient {
                                 type: 'vm',
                                 cpu: vm.cpu ? vm.cpu * 100 : 0,
                                 memory: vm.mem || 0,
-                                maxmem: vm.maxmem || 0
+                                maxmem: vm.maxmem || 0,
+                                uptime: vmDetails?.uptime || 0,
+                                netio: vmDetails ? {
+                                    netin: vmDetails.netin || 0,
+                                    netout: vmDetails.netout || 0
+                                } : null,
+                                diskio: vmDetails ? {
+                                    diskread: vmDetails.diskread || 0,
+                                    diskwrite: vmDetails.diskwrite || 0
+                                } : null,
+                                pid: vmDetails?.pid || null,
+                                balloon: vmDetails?.balloon || null,
+                                ballooninfo: vmDetails?.ballooninfo || null
                             });
                         }
                         console.log(`🖥️  ${nodeName}: ${vms.length}個のVM`);
@@ -263,6 +366,16 @@ class ProxmoxClient {
                     const containers = await this.apiRequest(`/nodes/${nodeName}/lxc`);
                     if (containers) {
                         for (const ct of containers) {
+                            // 各コンテナの詳細な統計を取得
+                            let ctDetails = null;
+                            try {
+                                if (ct.status === 'running') {
+                                    ctDetails = await this.apiRequest(`/nodes/${nodeName}/lxc/${ct.vmid}/status/current`);
+                                }
+                            } catch (ctError) {
+                                console.log(`⚠️  CT ${ct.vmid} 詳細取得失敗: ${ctError.message}`);
+                            }
+
                             data.vms.push({
                                 id: ct.vmid,
                                 name: ct.name || `CT-${ct.vmid}`,
@@ -272,7 +385,17 @@ class ProxmoxClient {
                                 type: 'container',
                                 cpu: ct.cpu ? ct.cpu * 100 : 0,
                                 memory: ct.mem || 0,
-                                maxmem: ct.maxmem || 0
+                                maxmem: ct.maxmem || 0,
+                                uptime: ctDetails?.uptime || 0,
+                                netio: ctDetails ? {
+                                    netin: ctDetails.netin || 0,
+                                    netout: ctDetails.netout || 0
+                                } : null,
+                                diskio: ctDetails ? {
+                                    diskread: ctDetails.diskread || 0,
+                                    diskwrite: ctDetails.diskwrite || 0
+                                } : null,
+                                pid: ctDetails?.pid || null
                             });
                         }
                         console.log(`📦 ${nodeName}: ${containers.length}個のコンテナ`);
