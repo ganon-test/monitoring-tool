@@ -57,6 +57,10 @@ class ProxmoxDashboard {
                 storage: data?.storage?.length || 0,
                 status: data?.cluster_status || 'unknown'
             });
+            
+            // クラスターホスト情報を更新
+            this.updateClusterInfo(data);
+            
             this.updateDashboard(data);
         });
         
@@ -381,7 +385,7 @@ class ProxmoxDashboard {
             <div class="node-header">
                 <div class="node-title">${node.name || node.node}</div>
                 <div class="status-badge ${statusClass}">${node.status}</div>
-                ${node.host ? `<div class="node-host">@${node.host}</div>` : ''}
+                ${node.source_host ? `<div class="node-host">データ元: ${node.source_host}</div>` : ''}
             </div>
             <div class="resource-info">
                 <div class="resource-item">
@@ -530,6 +534,31 @@ class ProxmoxDashboard {
 
     hideErrorModal() {
         document.getElementById('errorModal').classList.remove('show');
+    }
+
+    updateClusterInfo(data) {
+        // クラスターホスト一覧を作成
+        const hosts = new Set();
+        const nodes = data?.nodes || [];
+        
+        nodes.forEach(node => {
+            if (node.source_host) {
+                hosts.add(node.source_host);
+            }
+        });
+        
+        const hostsArray = Array.from(hosts);
+        const clusterHostsElement = document.getElementById('clusterHosts');
+        
+        if (clusterHostsElement) {
+            if (hostsArray.length > 0) {
+                clusterHostsElement.textContent = hostsArray.join(', ');
+            } else {
+                clusterHostsElement.textContent = '--';
+            }
+        }
+        
+        console.log('🏠 クラスターホスト情報更新:', hostsArray);
     }
 }
 

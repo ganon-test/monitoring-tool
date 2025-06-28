@@ -143,6 +143,42 @@ body {
     gap: var(--spacing-xl);
 }
 
+/* 統合されたクラスター概要セクション */
+.cluster-overview-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.overview-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.nodes-detail {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border-color);
+}
+
+.cluster-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.cluster-hosts {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.cluster-hosts span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 /* 概要セクション */
 .card-grid {
     display: grid;

@@ -32,20 +32,18 @@
 
     <!-- メインコンテンツ -->
     <main class="main-content">
-        <!-- 概要カード -->
-        <section class="overview-section">
-            <div class="card-grid">
+        <!-- 統合されたクラスター概要とノード詳細セクション -->
+        <section class="cluster-overview-section">
+            <!-- 概要カード -->
+            <div class="overview-cards">
                 <div class="overview-card">
                     <div class="card-icon cpu">
                         <i class="fas fa-microchip"></i>
                     </div>
                     <div class="card-content">
-                        <div class="card-title">CPU使用率</div>
+                        <div class="card-title">平均CPU使用率</div>
                         <div class="card-value" id="overallCpuUsage">0%</div>
-                        <div class="card-trend" id="cpuTrend">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>0.0%</span>
-                        </div>
+                        <div class="card-subtitle">クラスター全体</div>
                     </div>
                 </div>
 
@@ -54,12 +52,9 @@
                         <i class="fas fa-memory"></i>
                     </div>
                     <div class="card-content">
-                        <div class="card-title">メモリ使用率</div>
+                        <div class="card-title">総メモリ使用率</div>
                         <div class="card-value" id="overallMemoryUsage">0%</div>
-                        <div class="card-trend" id="memoryTrend">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>0.0%</span>
-                        </div>
+                        <div class="card-subtitle">クラスター全体</div>
                     </div>
                 </div>
 
@@ -83,6 +78,26 @@
                         <div class="card-value" id="runningVms">0</div>
                         <div class="card-subtitle">/ <span id="totalVms">0</span> VM・CT</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ノード詳細 -->
+            <div class="nodes-detail">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-server"></i>
+                        Proxmoxクラスターノード詳細
+                    </h2>
+                    <div class="cluster-info">
+                        <span class="cluster-hosts">接続先: <span id="clusterHosts">--</span></span>
+                        <div class="refresh-button" id="refreshNodes">
+                            <i class="fas fa-sync-alt"></i>
+                            更新
+                        </div>
+                    </div>
+                </div>
+                <div id="nodesContainer" class="nodes-container">
+                    <!-- ノード情報がここに動的に追加されます -->
                 </div>
             </div>
         </section>
@@ -121,23 +136,6 @@
                         <canvas id="memoryChart"></canvas>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- ノード情報セクション -->
-        <section class="nodes-section">
-            <div class="section-header">
-                <h2>
-                    <i class="fas fa-server"></i>
-                    Proxmoxノード
-                </h2>
-                <div class="refresh-button" id="refreshNodes">
-                    <i class="fas fa-sync-alt"></i>
-                    更新
-                </div>
-            </div>
-            <div id="nodesContainer" class="nodes-container">
-                <!-- ノード情報がここに動的に追加されます -->
             </div>
         </section>
 

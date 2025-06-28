@@ -404,15 +404,44 @@ class ProxmoxMonitor {
                 };
 
                 // 全Proxmoxサーバーからデータ収集
+                const seenNodes = new Set();
+                const seenVMs = new Set();
+                
                 for (let i = 0; i < this.clients.length; i++) {
                     const client = this.clients[i];
                     console.log(`📡 データ収集中 (${i + 1}/${this.clients.length}): ${client.host}`);
                     
                     const data = await client.getClusterData();
                     if (data) {
-                        allData.nodes.push(...data.nodes);
-                        allData.vms.push(...data.vms);
-                        allData.storage.push(...data.storage);
+                        // ノードの重複排除（ノード名をキーとして使用）
+                        data.nodes.forEach(node => {
+                            if (!seenNodes.has(node.name)) {
+                                seenNodes.add(node.name);
+                                allData.nodes.push({
+                                    ...node,
+                                    source_host: client.host  // どのホストから取得したかを記録
+                                });
+                            }
+                        });
+                        
+                        // VM/CTの重複排除（VMID + ノード名をキーとして使用）
+                        data.vms.forEach(vm => {
+                            const vmKey = `${vm.node}-${vm.id}`;
+                            if (!seenVMs.has(vmKey)) {
+                                seenVMs.add(vmKey);
+                                allData.vms.push({
+                                    ...vm,
+                                    source_host: client.host
+                                });
+                            }
+                        });
+                        
+                        // ストレージは各ホストごとに個別（重複排除なし）
+                        allData.storage.push(...data.storage.map(storage => ({
+                            ...storage,
+                            source_host: client.host
+                        })));
+                        
                         console.log(`✅ データ収集完了 (${i + 1}/${this.clients.length}): ${client.host} - ノード:${data.nodes.length}, VM/CT:${data.vms.length}`);
                     } else {
                         console.log(`❌ データ収集失敗 (${i + 1}/${this.clients.length}): ${client.host}`);
@@ -421,6 +450,8 @@ class ProxmoxMonitor {
                         }
                     }
                 }
+                
+                console.log(`📊 重複排除後の統計 - ユニークノード:${allData.nodes.length}, ユニークVM/CT:${allData.vms.length}, ストレージ:${allData.storage.length}`);
 
                 this.latestData = allData;
                 this.database.saveMetrics(allData);
