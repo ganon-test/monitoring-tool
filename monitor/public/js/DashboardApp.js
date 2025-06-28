@@ -180,15 +180,17 @@ class DashboardApp {
                             }
                         }).catch(error => {
                             console.error('Failed to fetch Proxmox data:', error);
-                            // フォールバック：テストデータで初期化
-                            if (this.proxmoxController.initializeWithTestData) {
-                                this.proxmoxController.initializeWithTestData();
+                            // 実データなしの場合はデフォルト値を設定
+                            if (this.proxmoxController.setDefaultGaugeValues) {
+                                this.proxmoxController.setDefaultGaugeValues();
                             }
                         });
-                    } else if (this.proxmoxController.initializeWithTestData) {
-                        // fetchメソッドもない場合はテストデータを使用
-                        console.log('No fetch method available, using test data');
-                        this.proxmoxController.initializeWithTestData();
+                    } else {
+                        // fetchメソッドもない場合はデフォルト値を設定
+                        console.log('No fetch method available, showing default values');
+                        if (this.proxmoxController.setDefaultGaugeValues) {
+                            this.proxmoxController.setDefaultGaugeValues();
+                        }
                     }
                 }
             }

@@ -259,25 +259,21 @@ class ProxmoxClient {
                                         );
                                         
                                         if (activeInterfaces.length > 0) {
-                                            // 開発用: ダミーデータでUI確認（実際の統計値は取得できないため）
-                                            const dummyMultiplier = 1000000; // 1MB程度
-                                            const dummyRx = Math.random() * dummyMultiplier * activeInterfaces.length;
-                                            const dummyTx = Math.random() * dummyMultiplier * activeInterfaces.length;
-                                            
+                                            // 実データのみでネットワーク統計を構築
                                             networkData = {
                                                 interfaces: activeInterfaces.length,
-                                                total_rx_bytes: Math.round(dummyRx),
-                                                total_tx_bytes: Math.round(dummyTx),
+                                                total_rx_bytes: 0,
+                                                total_tx_bytes: 0,
                                                 details: activeInterfaces.map((iface, index) => ({
                                                     name: iface.iface,
-                                                    rx_bytes: Math.round(dummyRx / activeInterfaces.length),
-                                                    tx_bytes: Math.round(dummyTx / activeInterfaces.length),
-                                                    rx_packets: Math.round(Math.random() * 100000),
-                                                    tx_packets: Math.round(Math.random() * 100000),
+                                                    rx_bytes: 0,
+                                                    tx_bytes: 0,
+                                                    rx_packets: 0,
+                                                    tx_packets: 0,
                                                     type: iface.type || 'unknown'
                                                 }))
                                             };
-                                            console.log(`🌐 ネットワーク統計(設定+ダミー) ${nodeName}: ${activeInterfaces.length}IF, 受信=${(networkData.total_rx_bytes / 1024 / 1024).toFixed(1)}MB, 送信=${(networkData.total_tx_bytes / 1024 / 1024).toFixed(1)}MB`);
+                                            console.log(`🌐 ネットワーク統計(実データなし) ${nodeName}: ${activeInterfaces.length}IF, 統計データ取得できず`);
                                         }
                                     }
                                 } catch (configError) {

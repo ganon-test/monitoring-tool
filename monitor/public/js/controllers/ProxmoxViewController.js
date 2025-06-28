@@ -356,7 +356,12 @@ class ProxmoxViewController {
         const labels = onlineNodes.map(node => node.node || 'Unknown');
         const cpuData = onlineNodes.map(node => Math.round(node.cpu || 0));
         const memoryData = onlineNodes.map(node => Math.round(((node.mem || 0) / (node.maxmem || 1)) * 100));
-        const storageData = onlineNodes.map(node => Math.round(Math.random() * 50 + 20));
+        const storageData = onlineNodes.map(node => {
+            if (node.disk && node.maxdisk) {
+                return Math.round((node.disk / node.maxdisk) * 100);
+            }
+            return 0; // 実データがない場合は0
+        });
 
         nodePerformance.data.labels = labels;
         nodePerformance.data.datasets[0].data = cpuData;
@@ -373,14 +378,14 @@ class ProxmoxViewController {
 
         let totalRx = 0, totalTx = 0;
         data.nodes.forEach(node => {
-            if (node.status === 'online') {
-                totalRx += Math.random() * 100;
-                totalTx += Math.random() * 80;
+            if (node.status === 'online' && node.network) {
+                totalRx += (node.network.total_rx_bytes || 0) / 1024 / 1024; // MB
+                totalTx += (node.network.total_tx_bytes || 0) / 1024 / 1024; // MB
             }
         });
 
-        this.updateElement('network-rx-rate', `${Math.round(totalRx)} MB/s`);
-        this.updateElement('network-tx-rate', `${Math.round(totalTx)} MB/s`);
+        this.updateElement('network-rx-rate', `${totalRx.toFixed(1)} MB/s`);
+        this.updateElement('network-tx-rate', `${totalTx.toFixed(1)} MB/s`);
 
         // ネットワークミニチャートを更新
         const networkMini = this.chartManager.getChart('networkMini');
@@ -426,22 +431,19 @@ class ProxmoxViewController {
     updateHardwareMonitoring(data) {
         if (!data || !data.nodes) return;
 
-        // 平均温度（プレースホルダー）
-        const avgTemp = 35 + Math.random() * 20;
-        this.updateElement('avg-cpu-temp', `${Math.round(avgTemp)}°C`);
+        // 実データがないため表示なし
+        this.updateElement('avg-cpu-temp', '--°C');
 
         const tempBar = document.getElementById('temp-bar-fill');
         if (tempBar) {
-            const tempPercent = Math.min((avgTemp - 20) / 60 * 100, 100);
-            tempBar.style.width = `${tempPercent}%`;
+            tempBar.style.width = '0%';
         }
 
-        // 消費電力（プレースホルダー）
-        this.updateElement('power-consumption', `${Math.round(150 + Math.random() * 100)}W`);
+        // 実データがないため表示なし
+        this.updateElement('power-consumption', '--W');
 
-        // クラスターアップタイム（プレースホルダー）
-        const uptimeDays = Math.floor(Math.random() * 100 + 30);
-        this.updateElement('cluster-uptime', `${uptimeDays} days`);
+        // 実データがないため表示なし
+        this.updateElement('cluster-uptime', '--');
     }
 
     /**
@@ -576,25 +578,14 @@ class ProxmoxViewController {
             });
         }
 
-        // テストデータを生成（実際のデータがない場合）
+        // 実際のデータがない場合はデータなしとして処理
         if (storageData.length === 0) {
-            console.log('No storage data found, generating test data');
-            storageData = [
-                {
-                    storage: 'local-zfs',
-                    type: 'zfspool',
-                    used: 800 * 1024 * 1024 * 1024, // 800GB
-                    total: 2 * 1024 * 1024 * 1024 * 1024, // 2TB
-                    enabled: true
-                },
-                {
-                    storage: 'backup-nfs',
-                    type: 'nfs',
-                    used: 1.2 * 1024 * 1024 * 1024 * 1024, // 1.2TB
-                    total: 5 * 1024 * 1024 * 1024 * 1024, // 5TB
-                    enabled: true
-                }
-            ];
+            console.log('No storage data found');
+            const storageContainer = document.getElementById('storage-overview');
+            if (storageContainer) {
+                storageContainer.innerHTML = '<div class="no-data">ストレージデータがありません</div>';
+            }
+            return;
         }
 
         storageData.forEach(storage => {
@@ -772,73 +763,17 @@ class ProxmoxViewController {
     }
 
     /**
-     * テストデータでビューを初期化（開発用）
+     * テストデータでビューを初期化（開発用）- 無効化
      */
     initializeWithTestData() {
-        console.log('Initializing Proxmox view with test data...');
-
-        const testData = {
-            nodes: [
-                {
-                    node: 'proxmox-01',
-                    status: 'online',
-                    cpu: 0.25,
-                    maxcpu: 8,
-                    cores: 8,
-                    mem: 8 * 1024 * 1024 * 1024, // 8GB in bytes
-                    maxmem: 32 * 1024 * 1024 * 1024, // 32GB in bytes
-                    uptime: 2592000, // 30 days
-                    vmlist: [
-                        { vmid: 100, name: 'WebServer', type: 'qemu', status: 'running' },
-                        { vmid: 101, name: 'Database', type: 'qemu', status: 'running' },
-                        { vmid: 102, name: 'TestVM', type: 'qemu', status: 'stopped' },
-                        { vmid: 200, name: 'Container-1', type: 'lxc', status: 'running' }
-                    ]
-                },
-                {
-                    node: 'proxmox-02',
-                    status: 'online',
-                    cpu: 0.15,
-                    maxcpu: 6,
-                    cores: 6,
-                    mem: 6 * 1024 * 1024 * 1024,
-                    maxmem: 24 * 1024 * 1024 * 1024,
-                    uptime: 1728000, // 20 days
-                    vmlist: [
-                        { vmid: 103, name: 'BackupServer', type: 'qemu', status: 'running' },
-                        { vmid: 201, name: 'Container-2', type: 'lxc', status: 'stopped' }
-                    ]
-                }
-            ],
-            storage: [
-                {
-                    storage: 'local-zfs',
-                    type: 'zfspool',
-                    total: 2 * 1024 * 1024 * 1024 * 1024, // 2TB
-                    used: 800 * 1024 * 1024 * 1024, // 800GB
-                    enabled: true
-                },
-                {
-                    storage: 'nfs-storage',
-                    type: 'nfs',
-                    total: 5 * 1024 * 1024 * 1024 * 1024, // 5TB
-                    used: 2.5 * 1024 * 1024 * 1024 * 1024, // 2.5TB
-                    enabled: true
-                }
-            ],
-            vms: [
-                { vmid: 100, name: 'WebServer', type: 'qemu', status: 'running' },
-                { vmid: 101, name: 'Database', type: 'qemu', status: 'running' },
-                { vmid: 102, name: 'TestVM', type: 'qemu', status: 'stopped' },
-                { vmid: 103, name: 'BackupServer', type: 'qemu', status: 'running' }
-            ],
-            containers: [
-                { vmid: 200, name: 'Container-1', type: 'lxc', status: 'running' },
-                { vmid: 201, name: 'Container-2', type: 'lxc', status: 'stopped' }
-            ]
-        };
-
-        this.updateView(testData);
+        console.log('テストデータ初期化は無効化されています。実データのみを使用します。');
+        
+        // デフォルト値でUIを初期化
+        this.setDefaultGaugeValues();
+        this.setDefaultVMValues();
+        
+        const noDataMessage = 'Proxmoxデータを取得中...';
+        this.updateElement('cluster-summary', noDataMessage);
     }
 
     /**
@@ -846,12 +781,13 @@ class ProxmoxViewController {
      */
     init() {
         console.log('ProxmoxViewController initialized');
-        // 実際のデータが利用できない場合はテストデータを使用
+        // 実データが利用できない場合はデフォルト値で初期化
         setTimeout(() => {
             const data = this.dataModel ? this.dataModel.getProxmoxData() : null;
             if (!data || Object.keys(data).length === 0) {
-                console.log('No real data available, using test data');
-                this.initializeWithTestData();
+                console.log('No real data available, showing default values');
+                this.setDefaultGaugeValues();
+                this.setDefaultVMValues();
             }
         }, 1000);
     }
