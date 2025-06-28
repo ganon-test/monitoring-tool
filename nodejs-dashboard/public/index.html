@@ -157,23 +157,6 @@
             </div>
         </section>
 
-        <!-- VM/CTセクション -->
-        <section class="vms-section">
-            <div class="section-header">
-                <h2>
-                    <i class="fas fa-desktop"></i>
-                    仮想マシン・コンテナ
-                </h2>
-                <div class="vm-filters">
-                    <button class="filter-btn active" data-filter="all">すべて</button>
-                    <button class="filter-btn" data-filter="running">稼働中</button>
-                    <button class="filter-btn" data-filter="stopped">停止中</button>
-                </div>
-            </div>
-            <div id="vmsContainer" class="vms-container">
-                <!-- VM/CT情報がここに動的に追加されます -->
-            </div>
-        </section>
     </main>
 
     <!-- ローディングオーバーレイ -->
@@ -181,6 +164,113 @@
         <div class="loading-spinner">
             <div class="spinner"></div>
             <div class="loading-text">データを読み込み中...</div>
+        </div>
+    </div>
+
+    <!-- VM/CT詳細モーダル -->
+    <div id="vmDetailModal" class="modal vm-detail-modal">
+        <div class="modal-content vm-detail-content">
+            <div class="modal-header">
+                <h3 id="vmDetailTitle">
+                    <i class="fas fa-desktop"></i>
+                    VM/CT詳細情報
+                </h3>
+                <button class="modal-close" id="vmDetailModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="vm-detail-info">
+                    <div class="vm-detail-grid">
+                        <div class="vm-detail-section">
+                            <h4><i class="fas fa-info-circle"></i> 基本情報</h4>
+                            <div class="vm-detail-item">
+                                <span class="label">ID:</span>
+                                <span class="value" id="vmDetailId">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">名前:</span>
+                                <span class="value" id="vmDetailName">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">タイプ:</span>
+                                <span class="value" id="vmDetailType">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">ノード:</span>
+                                <span class="value" id="vmDetailNode">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">状態:</span>
+                                <span class="value" id="vmDetailStatus">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">稼働時間:</span>
+                                <span class="value" id="vmDetailUptime">--</span>
+                            </div>
+                        </div>
+                        
+                        <div class="vm-detail-section">
+                            <h4><i class="fas fa-microchip"></i> リソース</h4>
+                            <div class="vm-detail-item">
+                                <span class="label">CPU使用率:</span>
+                                <span class="value" id="vmDetailCpuUsage">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">CPU数:</span>
+                                <span class="value" id="vmDetailCpuCores">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">メモリ使用量:</span>
+                                <span class="value" id="vmDetailMemUsage">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">最大メモリ:</span>
+                                <span class="value" id="vmDetailMemMax">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">ディスク使用量:</span>
+                                <span class="value" id="vmDetailDiskUsage">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">最大ディスク:</span>
+                                <span class="value" id="vmDetailDiskMax">--</span>
+                            </div>
+                        </div>
+
+                        <div class="vm-detail-section">
+                            <h4><i class="fas fa-network-wired"></i> ネットワーク</h4>
+                            <div class="vm-detail-item">
+                                <span class="label">送信:</span>
+                                <span class="value" id="vmDetailNetOut">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">受信:</span>
+                                <span class="value" id="vmDetailNetIn">--</span>
+                            </div>
+                        </div>
+
+                        <div class="vm-detail-section">
+                            <h4><i class="fas fa-hdd"></i> ディスクI/O</h4>
+                            <div class="vm-detail-item">
+                                <span class="label">読み込み:</span>
+                                <span class="value" id="vmDetailDiskRead">--</span>
+                            </div>
+                            <div class="vm-detail-item">
+                                <span class="label">書き込み:</span>
+                                <span class="value" id="vmDetailDiskWrite">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="vmDetailRefresh">
+                    <i class="fas fa-sync-alt"></i>
+                    更新
+                </button>
+                <button class="btn btn-primary" id="vmDetailClose">
+                    閉じる
+                </button>
+            </div>
         </div>
     </div>
 
