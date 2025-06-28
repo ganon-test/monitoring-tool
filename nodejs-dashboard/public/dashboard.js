@@ -50,7 +50,13 @@ class ProxmoxDashboard {
         });
         
         this.socket.on('data_update', (data) => {
-            console.log('📊 リアルタイムデータ受信', data);
+            console.log('📊 リアルタイムデータ受信:', data);
+            console.log('📈 データ詳細:', {
+                nodes: data?.nodes?.length || 0,
+                vms: data?.vms?.length || 0,
+                storage: data?.storage?.length || 0,
+                status: data?.cluster_status || 'unknown'
+            });
             this.updateDashboard(data);
         });
         
@@ -230,6 +236,13 @@ class ProxmoxDashboard {
     }
 
     updateDashboard(data) {
+        console.log('🔄 ダッシュボード更新開始:', data);
+        
+        if (!data) {
+            console.warn('⚠️ データが空です');
+            return;
+        }
+        
         this.lastData = data;
         
         // 最終更新時刻
@@ -244,6 +257,8 @@ class ProxmoxDashboard {
         
         // VM/CT情報更新
         this.updateVMs([...(data.vms || []), ...(data.containers || [])]);
+        
+        console.log('✅ ダッシュボード更新完了');
     }
 
     updateOverviewCards(data) {

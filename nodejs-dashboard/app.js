@@ -55,6 +55,8 @@ class ProxmoxClient {
                 password: this.password
             };
 
+            console.log(`🔐 認証試行: ${this.host} (user: ${this.username})`);
+
             const response = await axios.post(authUrl, authData, {
                 httpsAgent: this.httpsAgent,
                 timeout: 10000
@@ -65,12 +67,19 @@ class ProxmoxClient {
                 this.csrfToken = response.data.data.CSRFPreventionToken;
                 console.log(`✅ Proxmox認証成功: ${this.host}`);
                 return true;
+            } else {
+                console.error(`❌ 認証レスポンス不正 ${this.host}:`, response.data);
+                return false;
             }
         } catch (error) {
-            console.error(`❌ Proxmox認証失敗 ${this.host}:`, error.message);
+            console.error(`❌ Proxmox認証失敗 ${this.host}:`, {
+                message: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+            });
             return false;
         }
-        return false;
     }
 
     async apiRequest(endpoint) {
@@ -298,16 +307,46 @@ class ProxmoxMonitor {
             
             const configFile = fs.readFileSync(configPath, 'utf8');
             const config = yaml.parse(configFile);
+            console.log('📄 設定ファイル内容:', JSON.stringify(config, null, 2));
 
-            // 環境変数の優先
-            const proxmoxHosts = process.env.PROXMOX_HOSTS ? 
-                JSON.parse(process.env.PROXMOX_HOSTS) : config.proxmox;
+            // 環境変数の優先、設定ファイルの構造に対応
+            let proxmoxHosts;
+            if (process.env.PROXMOX_HOSTS) {
+                proxmoxHosts = JSON.parse(process.env.PROXMOX_HOSTS);
+            } else if (Array.isArray(config.proxmox)) {
+                // config.yaml の proxmox が直接配列の場合
+                proxmoxHosts = config.proxmox;
+            } else if (config.proxmox && config.proxmox.hosts) {
+                // config.yaml の proxmox.hosts が配列の場合
+                proxmoxHosts = config.proxmox.hosts;
+            } else {
+                throw new Error('Proxmoxホスト設定が見つかりません');
+            }
 
-            for (const hostConfig of proxmoxHosts) {
+            if (!proxmoxHosts || !Array.isArray(proxmoxHosts)) {
+                throw new Error('Proxmoxホスト設定が配列ではありません');
+            }
+
+            console.log(`🔧 発見されたProxmoxホスト: ${proxmoxHosts.length}台`);
+
+            for (let i = 0; i < proxmoxHosts.length; i++) {
+                const hostConfig = proxmoxHosts[i];
+                
+                // 環境変数からパスワードを取得
+                const passwordEnvVar = `PROXMOX_PASSWORD_${i + 1}`;
+                const password = process.env[passwordEnvVar] || hostConfig.password;
+                
+                if (!password) {
+                    console.warn(`⚠️ パスワードが設定されていません: ${hostConfig.host} (${passwordEnvVar})`);
+                    continue;
+                }
+                
+                console.log(`🔧 Proxmoxクライアント設定: ${hostConfig.host}:${hostConfig.port || 8006} (user: ${hostConfig.username})`);
+                
                 const client = new ProxmoxClient(
                     hostConfig.host,
                     hostConfig.username,
-                    hostConfig.password,
+                    password,
                     hostConfig.verify_ssl || false
                 );
                 this.clients.push(client);
@@ -338,12 +377,21 @@ class ProxmoxMonitor {
                 };
 
                 // 全Proxmoxサーバーからデータ収集
-                for (const client of this.clients) {
+                for (let i = 0; i < this.clients.length; i++) {
+                    const client = this.clients[i];
+                    console.log(`📡 データ収集中 (${i + 1}/${this.clients.length}): ${client.host}`);
+                    
                     const data = await client.getClusterData();
                     if (data) {
                         allData.nodes.push(...data.nodes);
                         allData.vms.push(...data.vms);
                         allData.storage.push(...data.storage);
+                        console.log(`✅ データ収集完了 (${i + 1}/${this.clients.length}): ${client.host} - ノード:${data.nodes.length}, VM/CT:${data.vms.length}`);
+                    } else {
+                        console.log(`❌ データ収集失敗 (${i + 1}/${this.clients.length}): ${client.host}`);
+                        if (this.clients.length === 1) {
+                            allData.cluster_status = 'offline';
+                        }
                     }
                 }
 
