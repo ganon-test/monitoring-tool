@@ -155,6 +155,24 @@ class ProxmoxDashboard {
             return;
         }
         
+        // ネットワークデータのデバッグ出力
+        console.log('🔍 データ構造チェック:');
+        console.log('  - data.nodes存在:', !!data.nodes);
+        console.log('  - data.nodes型:', typeof data.nodes);
+        console.log('  - data.nodes長さ:', data.nodes ? data.nodes.length : 'N/A');
+        
+        if (data.nodes && data.nodes.length > 0) {
+            console.log('🔍 ノードデータ詳細:');
+            data.nodes.forEach((node, index) => {
+                console.log(`  [${index}] ${node.name}:`);
+                console.log(`    - ネットワーク:`, node.network);
+                console.log(`    - ディスク:`, node.disk);
+                console.log(`    - ロードアベレージ:`, node.loadavg);
+            });
+        } else {
+            console.warn('⚠️ ノードデータが存在しないか空です');
+        }
+        
         this.lastData = data;
         
         // 最終更新時刻
