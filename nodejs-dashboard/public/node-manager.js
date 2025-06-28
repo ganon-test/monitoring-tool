@@ -86,6 +86,22 @@ class NodeManager {
             } else {
                 console.log(`⚠️ ノード ${node.name} ネットワーク統計なし`);
             }
+
+            // そのノード上のVM/CTのネットワーク活動を集計
+            let vmNetworkActivity = 0;
+            if (window.dashboard && window.dashboard.lastData && window.dashboard.lastData.vms) {
+                const nodeVMs = window.dashboard.lastData.vms.filter(vm => vm.node === node.name);
+                vmNetworkActivity = nodeVMs.reduce((total, vm) => {
+                    if (vm.netio) {
+                        return total + (vm.netio.netin || 0) + (vm.netio.netout || 0);
+                    }
+                    return total;
+                }, 0);
+                
+                if (vmNetworkActivity > 0) {
+                    console.log(`🔍 ノード ${node.name} VM/CT合計ネットワーク活動: ${(vmNetworkActivity/1024).toFixed(1)}KB/s`);
+                }
+            }
         
             card.innerHTML = `
                 <div class="node-header">
@@ -157,7 +173,12 @@ class NodeManager {
                                     if (totalRate > 0) {
                                         return formatSpeed(totalRate);
                                     } else if (node.network.interfaces > 0) {
-                                        return `${node.network.interfaces}IF 接続`;
+                                        // VM/CTの活動もチェック
+                                        if (vmNetworkActivity > 0) {
+                                            return `${node.network.interfaces}IF 活動中`;
+                                        } else {
+                                            return `${node.network.interfaces}IF 接続`;
+                                        }
                                     } else {
                                         return 'データ取得中';
                                     }
@@ -171,7 +192,11 @@ class NodeManager {
                                     ${(() => {
                                         const total = (node.network.rx_rate || 0) + (node.network.tx_rate || 0);
                                         if (total === 0) {
-                                            return '<div style="color: var(--text-muted); font-style: italic;"><i class="fas fa-info-circle"></i> アイドル状態</div>';
+                                            if (vmNetworkActivity > 0) {
+                                                return '<div style="color: var(--info-color); font-style: italic;"><i class="fas fa-info-circle"></i> VM/CT活動: ' + formatSpeed(vmNetworkActivity) + '</div>';
+                                            } else {
+                                                return '<div style="color: var(--text-muted); font-style: italic;"><i class="fas fa-info-circle"></i> ホストレベル統計取得中</div>';
+                                            }
                                         }
                                         return '';
                                     })()}
