@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-dashboard
+  labels:
+    app: proxmox-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxmox-dashboard
+  template:
+    metadata:
+      labels:
+        app: proxmox-dashboard
+    spec:
+      containers:
+      - name: dashboard
+        image: proxmox-dashboard:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXTCLOUD_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-secrets
+              key: nextcloud-password
+        - name: PROXMOX_PASSWORD_1
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-secrets
+              key: proxmox-password-1
+        - name: PROXMOX_PASSWORD_2
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-secrets
+              key: proxmox-password-2
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+        - name: data
+          mountPath: /app/data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        configMap:
+          name: proxmox-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: proxmox-dashboard-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-dashboard-service
+spec:
+  selector:
+    app: proxmox-dashboard
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: proxmox-dashboard-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxmox-config
+data:
+  config.yaml: |
+    # Proxmox設定 - 機密情報は環境変数で管理
+    proxmox:
+      hosts:
+        - host: "your-proxmox-host-1.local"
+          username: "root@pam"
+          port: 8006
+        - host: "your-proxmox-host-2.local"
+          username: "root@pam"
+          port: 8006
+    
+    nextcloud:
+      url: "https://your-nextcloud.local"
+      username: "admin"
+    
+    monitoring:
+      interval: 30
+      history_retention_days: 7
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: proxmox-secrets
+type: Opaque
+stringData:
+  nextcloud-password: "your-nextcloud-password"
+  proxmox-password-1: "your-proxmox-password-1"
+  proxmox-password-2: "your-proxmox-password-2"

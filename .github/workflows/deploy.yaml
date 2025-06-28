@@ -1,4 +1,4 @@
-name: Deploy to Home Server
+name: Deploy Node.js Proxmox Dashboard
 
 on:
   push:
@@ -27,27 +27,27 @@ jobs:
             cd ~/MONITORING-API
             git pull origin main || exit 1
 
-            # Python依存関係のインストール
-            pip3 install --break-system-packages -r requirements.txt || exit 1
+            # Node.js依存関係のインストール（package.jsonがある場合）
+            if [ -f package.json ]; then
+              npm install || exit 1
+            fi
+
+            # Node.js dashboard依存関係のインストール
+            cd nodejs-dashboard
+            npm install || exit 1
 
             # screen コマンドの存在確認＆インストール
             command -v screen >/dev/null 2>&1 || apt install -y screen
 
-            # Flask API (←ここに環境変数を設定)
+            # 既存のscreenセッションを停止
             screen -S monitoring-api -X quit || true
-            screen -dmS monitoring-api bash -c "
+            screen -S monitoring-node -X quit || true
+            screen -S proxmox-dashboard -X quit || true
+
+            # Node.js Proxmox Dashboard（新しいシステム）
+            screen -dmS proxmox-dashboard bash -c "
               export NEXTCLOUD_PASSWORD='${{ secrets.NEXTCLOUD_PASSWORD }}';
               export PROXMOX_PASSWORD_1='${{ secrets.PROXMOX_PASSWORD_1 }}';
               export PROXMOX_PASSWORD_2='${{ secrets.PROXMOX_PASSWORD_2 }}';
-              cd ~/MONITORING-API && python3 main.py
+              cd ~/MONITORING-API/nodejs-dashboard && node app.js
             "
-
-
-            # Node.js monitor
-            if [ -d ~/MONITORING-API/monitor ]; then
-              screen -S monitoring-node -X quit || true
-              screen -dmS monitoring-node bash -c '
-                export API_BASE="http://localhost:5000";
-                cd ~/MONITORING-API/monitor && npm install && node server.js
-              '
-            fi

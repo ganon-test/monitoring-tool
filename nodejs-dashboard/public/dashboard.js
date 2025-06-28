@@ -1,0 +1,497 @@
+/**
+ * Proxmox監視ダッシュボード - フロントエンド
+ * Node.jsバックエンドと連携してリアルタイムデータを表示
+ */
+
+class ProxmoxDashboard {
+    constructor() {
+        this.socket = null;
+        this.charts = {};
+        this.lastData = null;
+        this.updateInterval = null;
+        
+        this.init();
+    }
+
+    async init() {
+        console.log('🚀 ダッシュボード初期化開始');
+        
+        // Socket.IO接続
+        this.connectSocket();
+        
+        // チャート初期化
+        this.initCharts();
+        
+        // イベントリスナー設定
+        this.setupEventListeners();
+        
+        // 初期データ読み込み
+        await this.loadInitialData();
+        
+        // ローディングを隠す
+        this.hideLoading();
+        
+        console.log('✅ ダッシュボード初期化完了');
+    }
+
+    connectSocket() {
+        console.log('🔌 WebSocket接続中...');
+        
+        this.socket = io();
+        
+        this.socket.on('connect', () => {
+            console.log('✅ WebSocket接続成功');
+            this.updateConnectionStatus(true);
+        });
+        
+        this.socket.on('disconnect', () => {
+            console.log('❌ WebSocket切断');
+            this.updateConnectionStatus(false);
+        });
+        
+        this.socket.on('data_update', (data) => {
+            console.log('📊 リアルタイムデータ受信', data);
+            this.updateDashboard(data);
+        });
+        
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ WebSocket接続エラー:', error);
+            this.updateConnectionStatus(false);
+        });
+    }
+
+    updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connectionStatus');
+        const dot = statusElement.querySelector('.status-dot');
+        const span = statusElement.querySelector('span');
+        
+        if (connected) {
+            dot.classList.remove('disconnected');
+            span.textContent = '接続済み';
+        } else {
+            dot.classList.add('disconnected');
+            span.textContent = '切断中';
+        }
+    }
+
+    initCharts() {
+        // CPUチャート
+        const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+        this.charts.cpu = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CPU使用率 (%)',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#cbd5e1' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0,
+                        hoverRadius: 6
+                    }
+                }
+            }
+        });
+
+        // メモリチャート
+        const memoryCtx = document.getElementById('memoryChart').getContext('2d');
+        this.charts.memory = new Chart(memoryCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'メモリ使用率 (%)',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#cbd5e1' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: { color: '#64748b' },
+                        grid: { color: '#334155' }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0,
+                        hoverRadius: 6
+                    }
+                }
+            }
+        });
+    }
+
+    setupEventListeners() {
+        // 更新ボタン
+        document.getElementById('refreshNodes')?.addEventListener('click', () => {
+            this.loadInitialData();
+        });
+
+        // VMフィルター
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.filterVMs(e.target.dataset.filter);
+            });
+        });
+
+        // 時間範囲選択
+        document.getElementById('cpuTimeRange')?.addEventListener('change', (e) => {
+            this.updateChartTimeRange('cpu', e.target.value);
+        });
+
+        document.getElementById('memoryTimeRange')?.addEventListener('change', (e) => {
+            this.updateChartTimeRange('memory', e.target.value);
+        });
+
+        // エラーモーダル
+        document.getElementById('errorModalClose')?.addEventListener('click', () => {
+            this.hideErrorModal();
+        });
+
+        document.getElementById('errorModalOk')?.addEventListener('click', () => {
+            this.hideErrorModal();
+        });
+    }
+
+    async loadInitialData() {
+        try {
+            console.log('📡 初期データ読み込み中...');
+            this.showLoading();
+
+            // 現在のステータス取得
+            const statusResponse = await fetch('/api/status');
+            const statusData = await statusResponse.json();
+
+            if (statusData.success) {
+                this.updateDashboard(statusData.data);
+            }
+
+            // 履歴データ取得
+            const historyResponse = await fetch('/api/history');
+            const historyData = await historyResponse.json();
+
+            if (historyData.success) {
+                this.updateCharts(historyData.data);
+            }
+
+        } catch (error) {
+            console.error('❌ 初期データ読み込みエラー:', error);
+            this.showError('データの読み込みに失敗しました。ネットワーク接続を確認してください。');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    updateDashboard(data) {
+        this.lastData = data;
+        
+        // 最終更新時刻
+        document.getElementById('lastUpdate').textContent = 
+            `最終更新: ${new Date().toLocaleTimeString()}`;
+
+        // 概要カード更新
+        this.updateOverviewCards(data);
+        
+        // ノード情報更新
+        this.updateNodes(data.nodes || []);
+        
+        // VM/CT情報更新
+        this.updateVMs([...(data.vms || []), ...(data.containers || [])]);
+    }
+
+    updateOverviewCards(data) {
+        const nodes = data.nodes || [];
+        const vms = data.vms || [];
+        const containers = data.containers || [];
+        
+        // CPU使用率計算
+        let totalCpu = 0;
+        let cpuCount = 0;
+        nodes.forEach(node => {
+            if (node.status === 'online' && node.cpu !== undefined) {
+                totalCpu += node.cpu;
+                cpuCount++;
+            }
+        });
+        const avgCpu = cpuCount > 0 ? (totalCpu / cpuCount) : 0;
+
+        // メモリ使用率計算
+        let totalMemory = 0;
+        let totalMemoryMax = 0;
+        nodes.forEach(node => {
+            if (node.status === 'online' && node.memory !== undefined) {
+                totalMemory += node.memory.used || 0;
+                totalMemoryMax += node.memory.total || 0;
+            }
+        });
+        const memoryUsage = totalMemoryMax > 0 ? (totalMemory / totalMemoryMax * 100) : 0;
+
+        // アクティブノード数
+        const activeNodes = nodes.filter(node => node.status === 'online').length;
+        
+        // 稼働VM/CT数
+        const runningVms = [...vms, ...containers].filter(vm => vm.status === 'running').length;
+        const totalVMs = vms.length + containers.length;
+
+        // UI更新
+        document.getElementById('overallCpuUsage').textContent = `${avgCpu.toFixed(1)}%`;
+        document.getElementById('overallMemoryUsage').textContent = `${memoryUsage.toFixed(1)}%`;
+        document.getElementById('activeNodes').textContent = activeNodes;
+        document.getElementById('totalNodes').textContent = nodes.length;
+        document.getElementById('runningVms').textContent = runningVms;
+        document.getElementById('totalVms').textContent = totalVMs;
+
+        // トレンド表示（簡略化）
+        this.updateTrend('cpuTrend', 0);
+        this.updateTrend('memoryTrend', 0);
+    }
+
+    updateTrend(elementId, change) {
+        const element = document.getElementById(elementId);
+        const icon = element.querySelector('i');
+        const span = element.querySelector('span');
+        
+        element.className = 'card-trend';
+        
+        if (change > 0) {
+            element.classList.add('up');
+            icon.className = 'fas fa-arrow-up';
+        } else if (change < 0) {
+            element.classList.add('down');
+            icon.className = 'fas fa-arrow-down';
+        } else {
+            element.classList.add('neutral');
+            icon.className = 'fas fa-minus';
+        }
+        
+        span.textContent = `${Math.abs(change).toFixed(1)}%`;
+    }
+
+    updateNodes(nodes) {
+        const container = document.getElementById('nodesContainer');
+        container.innerHTML = '';
+
+        nodes.forEach(node => {
+            const nodeCard = this.createNodeCard(node);
+            container.appendChild(nodeCard);
+        });
+    }
+
+    createNodeCard(node) {
+        const card = document.createElement('div');
+        card.className = 'node-card';
+        
+        const statusClass = node.status === 'online' ? 'online' : 'offline';
+        const cpuUsage = node.cpu || 0;
+        const memoryUsage = node.memory ? (node.memory.used / node.memory.total * 100) : 0;
+        
+        card.innerHTML = `
+            <div class="node-header">
+                <div class="node-title">${node.node}</div>
+                <div class="status-badge ${statusClass}">${node.status}</div>
+            </div>
+            <div class="resource-info">
+                <div class="resource-item">
+                    <div class="resource-label">CPU使用率</div>
+                    <div class="resource-value">${cpuUsage.toFixed(1)}%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${this.getProgressClass(cpuUsage)}" 
+                             style="width: ${cpuUsage}%"></div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-label">メモリ使用率</div>
+                    <div class="resource-value">${memoryUsage.toFixed(1)}%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${this.getProgressClass(memoryUsage)}" 
+                             style="width: ${memoryUsage}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return card;
+    }
+
+    updateVMs(vms) {
+        const container = document.getElementById('vmsContainer');
+        container.innerHTML = '';
+
+        vms.forEach(vm => {
+            const vmCard = this.createVMCard(vm);
+            container.appendChild(vmCard);
+        });
+    }
+
+    createVMCard(vm) {
+        const card = document.createElement('div');
+        card.className = 'vm-card';
+        card.dataset.status = vm.status;
+        
+        const statusClass = vm.status === 'running' ? 'running' : 'stopped';
+        const cpuUsage = vm.cpu || 0;
+        const memoryUsage = vm.memory ? (vm.memory.used / vm.memory.total * 100) : 0;
+        const type = vm.type === 'qemu' ? 'VM' : 'CT';
+        
+        card.innerHTML = `
+            <div class="vm-header">
+                <div class="vm-title">${vm.name} (${type}${vm.vmid})</div>
+                <div class="status-badge ${statusClass}">${vm.status}</div>
+            </div>
+            <div class="resource-info">
+                <div class="resource-item">
+                    <div class="resource-label">CPU使用率</div>
+                    <div class="resource-value">${cpuUsage.toFixed(1)}%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${this.getProgressClass(cpuUsage)}" 
+                             style="width: ${cpuUsage}%"></div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-label">メモリ使用率</div>
+                    <div class="resource-value">${memoryUsage.toFixed(1)}%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${this.getProgressClass(memoryUsage)}" 
+                             style="width: ${memoryUsage}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return card;
+    }
+
+    getProgressClass(percentage) {
+        if (percentage >= 80) return 'danger';
+        if (percentage >= 60) return 'warning';
+        return '';
+    }
+
+    filterVMs(filter) {
+        const vmCards = document.querySelectorAll('.vm-card');
+        
+        vmCards.forEach(card => {
+            const status = card.dataset.status;
+            let show = false;
+            
+            switch (filter) {
+                case 'all':
+                    show = true;
+                    break;
+                case 'running':
+                    show = status === 'running';
+                    break;
+                case 'stopped':
+                    show = status === 'stopped';
+                    break;
+            }
+            
+            card.style.display = show ? 'block' : 'none';
+        });
+    }
+
+    updateCharts(historyData) {
+        if (!historyData || historyData.length === 0) return;
+
+        // 時系列データを準備
+        const labels = historyData.map(item => 
+            new Date(item.timestamp).toLocaleTimeString('ja-JP', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            })
+        );
+
+        const cpuData = historyData.map(item => item.avg_cpu || 0);
+        const memoryData = historyData.map(item => item.avg_memory || 0);
+
+        // CPUチャート更新
+        this.charts.cpu.data.labels = labels;
+        this.charts.cpu.data.datasets[0].data = cpuData;
+        this.charts.cpu.update('none');
+
+        // メモリチャート更新
+        this.charts.memory.data.labels = labels;
+        this.charts.memory.data.datasets[0].data = memoryData;
+        this.charts.memory.update('none');
+    }
+
+    updateChartTimeRange(chartType, timeRange) {
+        // 時間範囲に基づいてデータを再取得
+        // 簡略化のため、現在は全データを表示
+        console.log(`📈 ${chartType}チャートの時間範囲を${timeRange}に変更`);
+    }
+
+    showLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    showError(message) {
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorModal').classList.add('show');
+    }
+
+    hideErrorModal() {
+        document.getElementById('errorModal').classList.remove('show');
+    }
+}
+
+// ダッシュボード初期化
+document.addEventListener('DOMContentLoaded', () => {
+    new ProxmoxDashboard();
+});
+
+// デバッグ用（開発時のみ）
+if (typeof window !== 'undefined') {
+    window.dashboard = ProxmoxDashboard;
+}

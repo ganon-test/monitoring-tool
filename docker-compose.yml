@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  proxmox-dashboard:
+    build: ./nodejs-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXTCLOUD_PASSWORD=${NEXTCLOUD_PASSWORD}
+      - PROXMOX_PASSWORD_1=${PROXMOX_PASSWORD_1}
+      - PROXMOX_PASSWORD_2=${PROXMOX_PASSWORD_2}
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - dashboard-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  dashboard-data:
