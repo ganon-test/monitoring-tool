@@ -89,17 +89,30 @@ class NodeManager {
 
             // そのノード上のVM/CTのネットワーク活動を集計
             let vmNetworkActivity = 0;
+            let vmNetworkDetails = [];
             if (window.dashboard && window.dashboard.lastData && window.dashboard.lastData.vms) {
                 const nodeVMs = window.dashboard.lastData.vms.filter(vm => vm.node === node.name);
                 vmNetworkActivity = nodeVMs.reduce((total, vm) => {
                     if (vm.netio) {
-                        return total + (vm.netio.netin || 0) + (vm.netio.netout || 0);
+                        const vmTotal = (vm.netio.netin || 0) + (vm.netio.netout || 0);
+                        if (vmTotal > 0) {
+                            vmNetworkDetails.push({
+                                name: vm.name,
+                                id: vm.id,
+                                type: vm.type,
+                                activity: vmTotal
+                            });
+                        }
+                        return total + vmTotal;
                     }
                     return total;
                 }, 0);
                 
                 if (vmNetworkActivity > 0) {
                     console.log(`🔍 ノード ${node.name} VM/CT合計ネットワーク活動: ${(vmNetworkActivity/1024).toFixed(1)}KB/s`);
+                    console.log(`🔍 活動中のVM/CT:`, vmNetworkDetails.map(vm => 
+                        `${vm.type.toUpperCase()} ${vm.id} (${vm.name}): ${(vm.activity/1024).toFixed(1)}KB/s`
+                    ));
                 }
             }
         
@@ -171,14 +184,14 @@ class NodeManager {
                                     const totalRate = rxRate + txRate;
                                     
                                     if (totalRate > 0) {
+                                        // ホストレベルの統計が取得できている場合
                                         return formatSpeed(totalRate);
+                                    } else if (vmNetworkActivity > 0) {
+                                        // ホスト統計は0だが、VM/CT活動がある場合
+                                        return `VM/CT: ${formatSpeed(vmNetworkActivity)}`;
                                     } else if (node.network.interfaces > 0) {
-                                        // VM/CTの活動もチェック
-                                        if (vmNetworkActivity > 0) {
-                                            return `${node.network.interfaces}IF 活動中`;
-                                        } else {
-                                            return `${node.network.interfaces}IF 接続`;
-                                        }
+                                        // インターフェースはあるが活動なし
+                                        return `${node.network.interfaces}IF アイドル`;
                                     } else {
                                         return 'データ取得中';
                                     }
@@ -186,17 +199,33 @@ class NodeManager {
                             </div>
                             <div class="resource-detail">
                                 <div class="network-stats">
-                                    <div><i class="fas fa-download"></i> 受信: ${formatSpeed(node.network.rx_rate || 0)}</div>
-                                    <div><i class="fas fa-upload"></i> 送信: ${formatSpeed(node.network.tx_rate || 0)}</div>
-                                    <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
                                     ${(() => {
-                                        const total = (node.network.rx_rate || 0) + (node.network.tx_rate || 0);
-                                        if (total === 0) {
-                                            if (vmNetworkActivity > 0) {
-                                                return '<div style="color: var(--info-color); font-style: italic;"><i class="fas fa-info-circle"></i> VM/CT活動: ' + formatSpeed(vmNetworkActivity) + '</div>';
-                                            } else {
-                                                return '<div style="color: var(--text-muted); font-style: italic;"><i class="fas fa-info-circle"></i> ホストレベル統計取得中</div>';
-                                            }
+                                        const hostRx = node.network.rx_rate || 0;
+                                        const hostTx = node.network.tx_rate || 0;
+                                        const hostTotal = hostRx + hostTx;
+                                        
+                                        if (hostTotal > 0) {
+                                            // ホスト統計が利用可能
+                                            return `
+                                                <div><i class="fas fa-download"></i> 受信: ${formatSpeed(hostRx)}</div>
+                                                <div><i class="fas fa-upload"></i> 送信: ${formatSpeed(hostTx)}</div>
+                                                <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
+                                            `;
+                                        } else {
+                                            // ホスト統計が0の場合はVM/CT活動を表示
+                                            return `
+                                                <div><i class="fas fa-server"></i> ホスト統計: 取得中</div>
+                                                <div><i class="fas fa-cubes"></i> VM/CT合計: ${formatSpeed(vmNetworkActivity)}</div>
+                                                <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
+                                            `;
+                                        }
+                                    })()}
+                                    ${(() => {
+                                        const hostTotal = (node.network.rx_rate || 0) + (node.network.tx_rate || 0);
+                                        if (hostTotal === 0 && vmNetworkActivity > 0) {
+                                            return '<div style="color: var(--info-color); font-style: italic;"><i class="fas fa-info-circle"></i> ホストレベル統計は取得中ですが、VM/CTは活動しています</div>';
+                                        } else if (hostTotal === 0 && vmNetworkActivity === 0) {
+                                            return '<div style="color: var(--text-muted); font-style: italic;"><i class="fas fa-pause-circle"></i> 現在ネットワーク活動はありません</div>';
                                         }
                                         return '';
                                     })()}
