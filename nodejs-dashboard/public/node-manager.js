@@ -74,6 +74,18 @@ class NodeManager {
             }
             
             console.log(`🖥️ ノード ${node.name}: CPU=${cpuUsage.toFixed(1)}%, メモリ=${memoryUsage.toFixed(1)}%`);
+            
+            // ネットワーク統計のデバッグ出力
+            if (node.network) {
+                console.log(`🔍 ノード ${node.name} ネットワーク統計:`, {
+                    interfaces: node.network.interfaces,
+                    rx_rate: node.network.rx_rate,
+                    tx_rate: node.network.tx_rate,
+                    total: (node.network.rx_rate || 0) + (node.network.tx_rate || 0)
+                });
+            } else {
+                console.log(`⚠️ ノード ${node.name} ネットワーク統計なし`);
+            }
         
             card.innerHTML = `
                 <div class="node-header">
@@ -137,15 +149,32 @@ class NodeManager {
                         </div>
                         ${node.network ? `
                             <div class="resource-value">
-                                ${node.network.rx_rate || node.network.tx_rate ? 
-                                    formatSpeed((node.network.rx_rate || 0) + (node.network.tx_rate || 0)) : 
-                                    '接続済み'}
+                                ${(() => {
+                                    const rxRate = node.network.rx_rate || 0;
+                                    const txRate = node.network.tx_rate || 0;
+                                    const totalRate = rxRate + txRate;
+                                    
+                                    if (totalRate > 0) {
+                                        return formatSpeed(totalRate);
+                                    } else if (node.network.interfaces > 0) {
+                                        return `${node.network.interfaces}IF 接続`;
+                                    } else {
+                                        return 'データ取得中';
+                                    }
+                                })()}
                             </div>
                             <div class="resource-detail">
                                 <div class="network-stats">
                                     <div><i class="fas fa-download"></i> 受信: ${formatSpeed(node.network.rx_rate || 0)}</div>
                                     <div><i class="fas fa-upload"></i> 送信: ${formatSpeed(node.network.tx_rate || 0)}</div>
                                     <div><i class="fas fa-ethernet"></i> ${node.network.interfaces}インターフェース</div>
+                                    ${(() => {
+                                        const total = (node.network.rx_rate || 0) + (node.network.tx_rate || 0);
+                                        if (total === 0) {
+                                            return '<div style="color: var(--text-muted); font-style: italic;"><i class="fas fa-info-circle"></i> アイドル状態</div>';
+                                        }
+                                        return '';
+                                    })()}
                                 </div>
                             </div>
                         ` : `

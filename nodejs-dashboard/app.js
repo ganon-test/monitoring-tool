@@ -195,51 +195,112 @@ class ProxmoxClient {
                             console.log(`⚠️  RRD統計取得失敗 ${nodeName}: ${rrdError.message}`);
                         }
                         
-                        // ネットワーク統計を取得（実データのみ、ダミーデータ一切なし）
+                        // ネットワーク統計を取得（実データのみ、より詳細なデバッグ付き）
                         let networkData = null;
                         try {
                             console.log(`🔍 ネットワーク統計取得開始 ${nodeName}`);
                             
-                            // 方法1: RRDデータから取得（バイト/秒の実際の速度データ）
-                            try {
-                                const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
-                                    ds: 'netin,netout',
-                                    timeframe: 'hour'
-                                });
-                                
-                                if (rrdResponse && rrdResponse.length > 0) {
-                                    // 最新のデータポイントを使用
-                                    const latest = rrdResponse[rrdResponse.length - 1];
+                            // 方法1: RRDデータから取得（複数のタイムフレームを試行）
+                            const timeframes = ['hour', 'day', 'week'];
+                            for (const timeframe of timeframes) {
+                                try {
+                                    console.log(`🔍 RRDデータ取得試行 ${nodeName} (${timeframe})`);
+                                    const rrdResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
+                                        ds: 'netin,netout',
+                                        timeframe: timeframe
+                                    });
                                     
-                                    if (latest && (latest.netin !== null || latest.netout !== null)) {
-                                        // RRDデータはバイト/秒なので、そのまま使用（累積値は計算しない）
-                                        const netin = Math.abs(parseFloat(latest.netin) || 0);
-                                        const netout = Math.abs(parseFloat(latest.netout) || 0);
+                                    if (rrdResponse && rrdResponse.length > 0) {
+                                        console.log(`🔍 RRDレスポンス ${nodeName} (${timeframe}): ${rrdResponse.length}データポイント`);
                                         
-                                        networkData = {
-                                            interfaces: 1,
-                                            total_rx_bytes: 0, // 累積値は表示せず、レート情報のみ
-                                            total_tx_bytes: 0,
-                                            rx_rate: netin,
-                                            tx_rate: netout,
-                                            details: [{
-                                                name: 'total',
-                                                rx_bytes: 0,
-                                                tx_bytes: 0,
-                                                rx_packets: 0,
-                                                tx_packets: 0,
-                                                rx_rate: netin,
-                                                tx_rate: netout
-                                            }]
-                                        };
-                                        console.log(`🌐 ネットワーク統計(RRD) ${nodeName}: 受信=${(netin / 1024).toFixed(1)}KB/s, 送信=${(netout / 1024).toFixed(1)}KB/s`);
+                                        // 最新の有効なデータポイントを探す
+                                        for (let i = rrdResponse.length - 1; i >= Math.max(0, rrdResponse.length - 10); i--) {
+                                            const dataPoint = rrdResponse[i];
+                                            console.log(`🔍 データポイント[${i}] ${nodeName}:`, {
+                                                time: dataPoint.time,
+                                                netin: dataPoint.netin,
+                                                netout: dataPoint.netout
+                                            });
+                                            
+                                            if (dataPoint && (dataPoint.netin !== null || dataPoint.netout !== null)) {
+                                                const netin = Math.abs(parseFloat(dataPoint.netin) || 0);
+                                                const netout = Math.abs(parseFloat(dataPoint.netout) || 0);
+                                                
+                                                // 小さい値でも有効とする（0.1B/s以上）
+                                                if (netin >= 0 && netout >= 0 && netin < 1073741824 && netout < 1073741824) {
+                                                    networkData = {
+                                                        interfaces: 1,
+                                                        total_rx_bytes: 0,
+                                                        total_tx_bytes: 0,
+                                                        rx_rate: netin,
+                                                        tx_rate: netout,
+                                                        details: [{
+                                                            name: 'total',
+                                                            rx_bytes: 0,
+                                                            tx_bytes: 0,
+                                                            rx_packets: 0,
+                                                            tx_packets: 0,
+                                                            rx_rate: netin,
+                                                            tx_rate: netout
+                                                        }]
+                                                    };
+                                                    console.log(`🌐 ネットワーク統計(RRD-${timeframe}) ${nodeName}: 受信=${(netin / 1024).toFixed(3)}KB/s, 送信=${(netout / 1024).toFixed(3)}KB/s`);
+                                                    break; // 有効なデータが見つかったら終了
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (networkData) break; // 有効なデータが見つかったら他のタイムフレームは試行しない
+                                    } else {
+                                        console.log(`⚠️  RRDレスポンス空 ${nodeName} (${timeframe})`);
                                     }
+                                } catch (rrdError) {
+                                    console.log(`⚠️  RRD取得失敗 ${nodeName} (${timeframe}): ${rrdError.message}`);
                                 }
-                            } catch (rrdError) {
-                                console.log(`⚠️  RRD取得失敗 ${nodeName}: ${rrdError.message}`);
                             }
                             
-                            // 方法2: ネットワーク設定から情報取得（RRDが失敗した場合のみ）
+                            // 方法2: /proc/net/dev相当の情報をRRDから取得（別アプローチ）
+                            if (!networkData) {
+                                try {
+                                    console.log(`🔍 ネットワーク統計別取得試行 ${nodeName}`);
+                                    const netstatResponse = await this.apiRequest(`/nodes/${nodeName}/rrddata`, {
+                                        ds: 'netio',
+                                        timeframe: 'hour'
+                                    });
+                                    
+                                    if (netstatResponse && netstatResponse.length > 0) {
+                                        const latest = netstatResponse[netstatResponse.length - 1];
+                                        console.log(`🔍 ネットワーク統計(netio) ${nodeName}:`, latest);
+                                        
+                                        if (latest && latest.netio !== null && latest.netio !== undefined) {
+                                            const netio = Math.abs(parseFloat(latest.netio) || 0);
+                                            if (netio >= 0 && netio < 1073741824) {
+                                                networkData = {
+                                                    interfaces: 1,
+                                                    total_rx_bytes: 0,
+                                                    total_tx_bytes: 0,
+                                                    rx_rate: netio / 2, // 受信・送信で分割
+                                                    tx_rate: netio / 2,
+                                                    details: [{
+                                                        name: 'total',
+                                                        rx_bytes: 0,
+                                                        tx_bytes: 0,
+                                                        rx_packets: 0,
+                                                        tx_packets: 0,
+                                                        rx_rate: netio / 2,
+                                                        tx_rate: netio / 2
+                                                    }]
+                                                };
+                                                console.log(`🌐 ネットワーク統計(netio) ${nodeName}: 総計=${(netio / 1024).toFixed(1)}KB/s`);
+                                            }
+                                        }
+                                    }
+                                } catch (netioError) {
+                                    console.log(`⚠️  netio取得失敗 ${nodeName}: ${netioError.message}`);
+                                }
+                            }
+                            
+                            // 方法3: ネットワーク設定から情報取得
                             if (!networkData) {
                                 try {
                                     const networkConfig = await this.apiRequest(`/nodes/${nodeName}/network`);
@@ -250,7 +311,6 @@ class ProxmoxClient {
                                         );
                                         
                                         if (activeInterfaces.length > 0) {
-                                            // 実際のインターフェース情報のみ、速度データなし
                                             networkData = {
                                                 interfaces: activeInterfaces.length,
                                                 total_rx_bytes: 0,
@@ -268,7 +328,7 @@ class ProxmoxClient {
                                                     type: iface.type || 'unknown'
                                                 }))
                                             };
-                                            console.log(`🌐 ネットワーク統計(設定のみ) ${nodeName}: ${activeInterfaces.length}IF, RRDデータなし`);
+                                            console.log(`🌐 ネットワーク統計(設定のみ) ${nodeName}: ${activeInterfaces.length}IF, 統計データ取得不可`);
                                         }
                                     }
                                 } catch (configError) {
@@ -276,9 +336,9 @@ class ProxmoxClient {
                                 }
                             }
                             
-                            // どちらも失敗した場合は最小限のデフォルト値
+                            // 最終的にデフォルト値
                             if (!networkData) {
-                                console.log(`⚠️  ネットワーク統計取得不可 ${nodeName}: 最小デフォルト値を使用`);
+                                console.log(`⚠️  ネットワーク統計取得完全失敗 ${nodeName}: デフォルト値使用`);
                                 networkData = {
                                     interfaces: 0,
                                     total_rx_bytes: 0,
@@ -289,9 +349,8 @@ class ProxmoxClient {
                                 };
                             }
                         } catch (netError) {
-                            console.log(`⚠️  ネットワーク統計取得失敗 ${nodeName}: ${netError.message}`);
+                            console.log(`⚠️  ネットワーク統計取得エラー ${nodeName}: ${netError.message}`);
                             
-                            // エラー時もデフォルト値を設定（ダミーデータなし）
                             networkData = {
                                 interfaces: 0,
                                 total_rx_bytes: 0,

@@ -166,6 +166,16 @@ class ProxmoxDashboard {
             data.nodes.forEach((node, index) => {
                 console.log(`  [${index}] ${node.name}:`);
                 console.log(`    - ネットワーク:`, node.network);
+                
+                // ネットワーク統計の詳細分析
+                if (node.network) {
+                    const netTotal = (node.network.rx_rate || 0) + (node.network.tx_rate || 0);
+                    const netStatus = netTotal > 0 ? `${(netTotal/1024).toFixed(1)}KB/s` : 'アイドル';
+                    console.log(`    - ネットワーク解析: ${netStatus} (IF=${node.network.interfaces})`);
+                } else {
+                    console.log(`    - ネットワーク解析: データなし`);
+                }
+                
                 console.log(`    - ディスク:`, node.disk);
                 console.log(`    - ロードアベレージ:`, node.loadavg);
             });
