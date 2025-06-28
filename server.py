@@ -303,6 +303,11 @@ def dashboard():
     """ダッシュボードページ"""
     return render_template('dashboard.html')
 
+@app.route('/dashboard')
+def dashboard_alt():
+    """ダッシュボード別ルート"""
+    return render_template('dashboard.html')
+
 @app.route('/api/status')
 def api_status():
     """ステータスAPI"""
